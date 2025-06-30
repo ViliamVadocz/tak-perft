@@ -2,51 +2,56 @@ const std = @import("std");
 const parseUnsigned = std.fmt.parseUnsigned;
 const splitScalar = std.mem.splitScalar;
 
-const game = @import("game.zig");
-const Game = game.Game;
-const BitBoard = game.BitBoard;
+const Bitboard = @import("bitboard.zig").BitBoard;
 const Color = @import("color.zig").Color;
+const Reserves = @import("reserves.zig").Reserves;
 const Stack = @import("stack.zig").Stack;
+const state = @import("state.zig");
+const State = state.State;
 
 pub fn determineSize(tps: []const u8) ?u8 {
     var count: u8 = 1;
     for (tps) |char| {
         if (char == '/') count += 1;
     }
-    if (count < game.min_n) return null;
-    if (count > game.max_n) return null;
+    if (count < state.min_n) return null;
+    if (count > state.max_n) return null;
     return count;
 }
 
-pub fn parse(comptime n: u8, tps: []const u8) !Game(n) {
-    std.debug.assert(n >= game.min_n);
-    std.debug.assert(n <= game.max_n);
+pub const ParseTPSError = error{
+    EmptyTps,
+    InvalidPlayerNumber,
+    TwoCommasAfterEachOther,
+    MissingNumbersInStack,
+    InvalidColorInStack,
+    WrongNumberOfItemsInRow,
+};
 
+pub fn parse(n: comptime_int, tps: []const u8) (ParseTPSError || std.fmt.ParseIntError)!State(n) {
+    state.assertSize(n);
+    if (tps.len == 0) return error.EmptyTps;
     var split_by_spaces = splitScalar(u8, tps, ' ');
     const board = split_by_spaces.next().?;
     const player_number = try parseUnsigned(u4, split_by_spaces.next() orelse "1", 10);
-    const move_number = try parseUnsigned(u32, split_by_spaces.next() orelse "1", 10);
+    // const move_number = try parseUnsigned(u32, split_by_spaces.next() orelse "1", 10);
 
-    const player: Color = switch (player_number) {
+    var out = State(n).init();
+    out.player = switch (player_number) {
         1 => .White,
         2 => .Black,
         else => return error.InvalidPlayerNumber,
     };
-    const opening = move_number < 1;
 
     var rows = splitScalar(u8, board, '/');
-    var stacks: [n * n]Stack(n) = @splat(Stack(n).init());
     var index: usize = 0;
-    var bit: BitBoard(n) = 1;
-    var noble: BitBoard(n) = 0;
-    var caps: BitBoard(n) = 0;
+    var bit: Bitboard(n) = 1;
+
     while (rows.next()) |row| {
         const before_row = index;
         var items = splitScalar(u8, row, ',');
         while (items.next()) |item| {
-            if (item.len == 0) {
-                return error.TwoCommasAfterEachOther;
-            }
+            if (item.len == 0) return error.TwoCommasAfterEachOther;
             // empty squares
             if (item[0] == 'x') {
                 const amount = if (item.len == 1) 1 else try parseUnsigned(u4, item[1..], 10);
@@ -55,42 +60,51 @@ pub fn parse(comptime n: u8, tps: []const u8) !Game(n) {
                 continue;
             }
             // top piece
-            const last = item[item.len - 1];
-            var indicator = false;
-            if (last == 'S') {
-                noble |= bit;
-                indicator = true;
-            } else if (last == 'C') {
-                noble |= bit;
-                caps |= bit;
-                indicator = true;
+            const last_piece = item[item.len - 1];
+            var road = true;
+            var noble = false;
+            if (last_piece == 'S') {
+                road = false;
+                noble = true;
+            } else if (last_piece == 'C') {
+                noble = true;
             }
+            if (noble) out.noble |= bit;
+            if (road) out.road |= bit;
             // stack
-            const stack_numbers = if (indicator) item[0 .. item.len - 1] else item;
-            const stack = &stacks[index];
-            for (stack_numbers) |number| {
+            const stack_numbers = if (noble) item[0 .. item.len - 1] else item;
+            if (stack_numbers.len == 0) return error.MissingNumbersInStack;
+            const stack = &out.stacks[index];
+            for (stack_numbers, 1..) |number, i| {
                 const color: Color = switch (number) {
                     '1' => .White,
                     '2' => .Black,
                     else => return error.InvalidColorInStack,
                 };
                 stack.add_one(color);
+                // reserves
+                const last = i == stack_numbers.len;
+                const reserves = switch (color) {
+                    .White => &out.white_reserves,
+                    .Black => &out.black_reserves,
+                };
+                if (last and road and noble) {
+                    if (@TypeOf(reserves.caps) != u0) {
+                        reserves.caps -|= 1;
+                    }
+                } else {
+                    reserves.flats -|= 1;
+                }
+            }
+            switch (stack.top()) {
+                .White => out.white |= bit,
+                .Black => out.black |= bit,
             }
             index += 1;
             bit <<= 1;
         }
-        if (index != before_row + n) {
-            return error.WrongNumberOfItemsInRow;
-        }
+        if (index - before_row != n) return error.WrongNumberOfItemsInRow;
     }
 
-    // TODO: Any other preprocessing?
-
-    return .{
-        .stacks = stacks,
-        .noble = noble,
-        .caps = caps,
-        .player = player,
-        .opening = opening,
-    };
+    return out;
 }

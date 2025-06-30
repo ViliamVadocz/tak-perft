@@ -1,10 +1,10 @@
 const std = @import("std");
-const game = @import("game.zig");
+
+const state = @import("state.zig");
 const Color = @import("color.zig").Color;
 
-pub fn StackType(comptime n: u8) type {
-    std.debug.assert(n >= game.min_n);
-    std.debug.assert(n <= game.max_n);
+pub fn StackType(n: comptime_int) type {
+    state.assertSize(n);
     return switch (n) {
         3 => u32, // 2 * (10 - 1) = 18
         4 => u32, // 2 * (15 - 1) = 28
@@ -16,9 +16,8 @@ pub fn StackType(comptime n: u8) type {
     };
 }
 
-pub fn AmountType(comptime n: u8) type {
-    std.debug.assert(n >= game.min_n);
-    std.debug.assert(n <= game.max_n);
+pub fn AmountType(n: comptime_int) type {
+    state.assertSize(n);
     return switch (n) {
         3 => u5,
         4 => u5,
@@ -30,10 +29,8 @@ pub fn AmountType(comptime n: u8) type {
     };
 }
 
-pub fn Stack(comptime n: u8) type {
-    std.debug.assert(n >= game.min_n);
-    std.debug.assert(n <= game.max_n);
-
+pub fn Stack(n: comptime_int) type {
+    state.assertSize(n);
     return struct {
         const MaxSize = @bitSizeOf(StackType(n)) - 1;
         _colors: StackType(n) = 1,
@@ -63,8 +60,15 @@ pub fn Stack(comptime n: u8) type {
             self.*._colors = self._colors >> amount;
             return colors;
         }
+
+        pub fn top(self: Stack(n)) Color {
+            std.debug.assert(self.size() > 0);
+            return @enumFromInt(self._colors & 1);
+        }
     };
 }
+
+// TODO: Proper tests
 
 test "add_one is same as add" {
     var stack_1 = Stack(6).init();
