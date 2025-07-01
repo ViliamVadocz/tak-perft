@@ -68,3 +68,11 @@ pub fn distanceToClosest(n: comptime_int, direction: Direction, hits: BitBoard(n
         .Down => (index - hit_index) / n,
     } -| 1;
 }
+
+pub fn spread(n: comptime_int, bb: BitBoard(n)) BitBoard(n) {
+    const left = (bb << 1) & ~colBoardAt(n, 0);
+    const up = (bb & ~rowBoardAt(n, n - 1)) << n;
+    const right = (bb >> 1) & ~colBoardAt(n, n - 1);
+    const down = bb >> n;
+    return bb | left | up | right | down;
+}
