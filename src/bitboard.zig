@@ -76,3 +76,40 @@ pub fn spread(n: comptime_int, bb: BitBoard(n)) BitBoard(n) {
     const down = bb >> n;
     return bb | left | up | right | down;
 }
+
+pub fn moveIndex(n: comptime_int, index: BitBoardIndex(n), direction: Direction) BitBoardIndex(n) {
+    return switch (direction) {
+        .Left => blk: {
+            std.debug.assert(index < std.math.maxInt(BitBoardIndex(n))); // overflow
+            std.debug.assert(index / n == (index + 1) / n); // wraparound
+            break :blk index + 1;
+        },
+        .Up => blk: {
+            std.debug.assert(index <= std.math.maxInt(BitBoardIndex(n)) - n); // overflow
+            break :blk index + n;
+        },
+        .Right => blk: {
+            std.debug.assert(index >= 1); // underflow
+            std.debug.assert(index / n == (index - 1) / n); // wraparound
+            break :blk index - 1;
+        },
+        .Down => blk: {
+            std.debug.assert(index >= n); // underflow
+            break :blk index - n;
+        },
+    };
+}
+
+pub fn extractAmountAt(bits: u8, amount: u4, at: u3) u8 {
+    std.debug.assert(amount > 0);
+    std.debug.assert(at + amount <= @bitSizeOf(u8));
+    const mask: u8 = @truncate((@as(u9, 1) << amount) - 1);
+    return (bits >> at) & mask;
+}
+
+test "extractAmountAt" {
+    try std.testing.expectEqual(0b1010, extractAmountAt(0b0110_1001, 4, 2));
+    try std.testing.expectEqual(0b011, extractAmountAt(0b1011_0111, 3, 1));
+    try std.testing.expectEqual(0b00101, extractAmountAt(0b0010_1100, 5, 3));
+    try std.testing.expectEqual(0b1010_1111, extractAmountAt(0b1010_1111, 8, 0));
+}

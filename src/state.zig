@@ -35,6 +35,61 @@ pub fn State(n: comptime_int) type {
             return .{};
         }
 
+        pub fn checkInvariants(self: State(n)) void {
+            const mode = @import("builtin").mode;
+            if (mode != .Debug and mode != .ReleaseSafe) return;
+            var white_flats: u8 = 0;
+            var black_flats: u8 = 0;
+            var white: BitBoard(n) = 0;
+            var black: BitBoard(n) = 0;
+            for (self.stacks, 0..) |stack, i| {
+                const bit = @as(BitBoard(n), 1) << @truncate(i);
+                const size = stack.size();
+                if (size == 0) continue;
+                switch (stack.top()) {
+                    .White => white |= bit,
+                    .Black => black |= bit,
+                }
+                var copy = stack;
+                const full = @divFloor(size, 8);
+                for (0..full) |_| {
+                    const colors = copy.take(8);
+                    const set = @popCount(colors);
+                    white_flats += 8 - set;
+                    black_flats += set;
+                }
+                const remaining = copy.size();
+                std.debug.assert(remaining < 8);
+                var colors = copy.take(@truncate(remaining));
+                std.debug.assert(copy._colors == 1);
+                for (0..remaining) |_| {
+                    switch (colors & 1) {
+                        0 => white_flats += 1,
+                        1 => black_flats += 1,
+                        else => unreachable,
+                    }
+                    colors >>= 1;
+                }
+            }
+            const caps = self.noble & self.road;
+            const white_caps = @popCount(caps & self.white);
+            const black_caps = @popCount(caps & self.black);
+            white_flats -= white_caps;
+            black_flats -= black_caps;
+
+            std.debug.assert(self.white == white);
+            std.debug.assert(self.black == black);
+            std.debug.assert(self.white & self.black == 0);
+            std.debug.assert(self.white | self.black == self.road | self.noble);
+            std.debug.assert(@popCount(self.road & self.noble) == white_caps + black_caps);
+            const default_reserves = Reserves(n){};
+            std.debug.assert(self.white_reserves.flats + white_flats == default_reserves.flats);
+            std.debug.assert(self.black_reserves.flats + black_flats == default_reserves.flats);
+            std.debug.assert(self.white_reserves.caps + white_caps == default_reserves.caps);
+            std.debug.assert(self.black_reserves.caps + black_caps == default_reserves.caps);
+        }
+
+        /// Check if it is the opening (first two plies).
         pub fn opening(self: State(n)) bool {
             if (@popCount(self.road) > 1) return false;
             const starting: Reserves(n) = .{};
@@ -43,20 +98,39 @@ pub fn State(n: comptime_int) type {
             return white_flats == 0 and black_flats < 2;
         }
 
-        pub fn currentReserves(self: State(n)) Reserves(n) {
+        /// Get reserves (current player, other player).
+        pub fn reserves(self: State(n)) struct { Reserves(n), Reserves(n) } {
             return switch (self.player) {
-                .White => self.white_reserves,
-                .Black => self.black_reserves,
+                .White => .{ self.white_reserves, self.black_reserves },
+                .Black => .{ self.black_reserves, self.white_reserves },
             };
         }
 
-        pub fn currentPieces(self: State(n)) BitBoard(n) {
+        /// Get mutable reserves (current player, other player).
+        pub fn reserves_mut(self: *State(n)) struct { *Reserves(n), *Reserves(n) } {
             return switch (self.player) {
-                .White => self.white,
-                .Black => self.black,
+                .White => .{ &self.white_reserves, &self.black_reserves },
+                .Black => .{ &self.black_reserves, &self.white_reserves },
             };
         }
 
+        /// Get piece bitboards (current player, other player).
+        pub fn pieces(self: State(n)) struct { BitBoard(n), BitBoard(n) } {
+            return switch (self.player) {
+                .White => .{ self.white, self.black },
+                .Black => .{ self.black, self.white },
+            };
+        }
+
+        /// Get mutable piece bitboards (current player, other player).
+        pub fn pieces_mut(self: *State(n)) struct { *BitBoard(n), *BitBoard(n) } {
+            return switch (self.player) {
+                .White => .{ &self.white, &self.black },
+                .Black => .{ &self.black, &self.white },
+            };
+        }
+
+        /// Check if this is a terminal state.
         pub fn terminal(self: State(n)) bool {
             if ((self.white | self.black) == std.math.maxInt(BitBoard(n))) return true;
             if ((self.white_reserves.flats == 0 and self.white_reserves.caps == 0) or
