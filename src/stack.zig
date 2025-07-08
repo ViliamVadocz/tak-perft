@@ -16,19 +16,6 @@ pub fn StackType(n: comptime_int) type {
     };
 }
 
-pub fn AmountType(n: comptime_int) type {
-    state.assertSize(n);
-    return switch (n) {
-        3 => u5,
-        4 => u5,
-        5 => u6,
-        6 => u6,
-        7 => u7,
-        8 => u7,
-        else => unreachable,
-    };
-}
-
 pub fn Stack(n: comptime_int) type {
     state.assertSize(n);
     return struct {
@@ -48,17 +35,19 @@ pub fn Stack(n: comptime_int) type {
             self.*._colors = (self._colors << 1) | @intFromEnum(color);
         }
 
-        pub fn add(self: *Stack(n), amount: AmountType(n), colors: StackType(n)) void {
+        pub fn add(self: *Stack(n), amount: u4, colors: u8) void {
             std.debug.assert(self.size() + amount <= MaxSize);
+            std.debug.assert(amount <= @bitSizeOf(u8));
             self.*._colors = (self._colors << amount) | colors;
         }
 
-        pub fn take(self: *Stack(n), amount: AmountType(n)) StackType(n) {
+        pub fn take(self: *Stack(n), amount: u4) u8 {
             std.debug.assert(amount <= self.size());
-            const shift = MaxSize - amount + 1;
-            const colors = (self._colors << shift) >> shift;
+            std.debug.assert(amount <= @bitSizeOf(u8));
+            const shift: std.math.Log2Int(StackType(n)) = @truncate(MaxSize - @as(StackType(n), amount) + 1);
+            const colors = (self._colors << shift) >> shift; // overflow?
             self.*._colors = self._colors >> amount;
-            return colors;
+            return @truncate(colors);
         }
 
         pub fn top(self: Stack(n)) Color {
@@ -93,7 +82,8 @@ test "take and add leaves the stack save" {
 
 test "Stack.take" {
     var stack = Stack(7).init();
-    stack.add(16, 0b0001_1101_0101_1100);
-    const taken = stack.take(10);
-    try std.testing.expectEqual(0b01_0101_1100, taken);
+    stack.add(8, 0b0001_1101);
+    stack.add(8, 0b0101_1100);
+    const taken = stack.take(6);
+    try std.testing.expectEqual(0b01_1100, taken);
 }
