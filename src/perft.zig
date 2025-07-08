@@ -548,13 +548,13 @@ test "countMoves smashes" {
 
 test "countMoves capstone blocking smash" {
     const p5 = .{ "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7", 55 };
-    // const p6 = .{  };
-    // const p7 = .{  };
-    // const p8 = .{  };
+    const p6 = .{ "x6/x4,1S,x/x2,21111S,1C,22122C,x/x6/x6/x6 2 11", 95 };
+    const p7 = .{ "x7/1C,1112S,x,112211C,2S,2C,1S/x7/x3,222C,x3/x3,2S,x3/x3,1S,x3/x7 1 10", 112 };
+    const p8 = .{ "x,1S,1C,1S,x4/1,11,11111C,2S,2C,2S,2S,2S/x8/x8/x2,2C,x5/x2,1S,x5/x2,1S,x5/x2,1S,x5 1 14", 148 };
     try std.testing.expectEqual(p5.@"1", countMoves(5, &try tps.parse(5, p5.@"0")));
-    // try std.testing.expectEqual(p6.@"1", countMoves(6, &try tps.parse(6, p6.@"0")));
-    // try std.testing.expectEqual(p7.@"1", countMoves(7, &try tps.parse(7, p7.@"0")));
-    // try std.testing.expectEqual(p8.@"1", countMoves(8, &try tps.parse(8, p8.@"0")));
+    try std.testing.expectEqual(p6.@"1", countMoves(6, &try tps.parse(6, p6.@"0")));
+    try std.testing.expectEqual(p7.@"1", countMoves(7, &try tps.parse(7, p7.@"0")));
+    try std.testing.expectEqual(p8.@"1", countMoves(8, &try tps.parse(8, p8.@"0")));
 }
 
 test "countMoves random positions" {
@@ -766,26 +766,6 @@ test "countPositions 6x6 random 3" {
     }
 }
 
-test "countPositions capstone blocking smash" {
-    const n = 5;
-    var state = try tps.parse(n, "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7");
-    const results = [_]u64{
-        1,
-        55,
-        3314,
-        175900,
-        10062310,
-        516323231,
-        28289068161,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
 test "countPositions 7x7 semirandom 1" {
     const n = 7;
     var state = try tps.parse(n, "1,x2,22S,1,x2/1,2S,122,1S,1,12,22/2,1,x,2,1221C,11S,21/x,1211S,221,1,12122S,121,1/2,122C,212111,1S,22,12,1/2S,2,x,12122,2,21,2S/x2,1S,1,2,1,2 2 41");
@@ -795,6 +775,24 @@ test "countPositions 7x7 semirandom 1" {
         43807,
         9102472,
         1944603576,
+    };
+    for (results, 0..) |r, depth| {
+        const before = state;
+        const positions = countPositions(n, &state, @truncate(depth));
+        try std.testing.expectEqual(before, state);
+        try std.testing.expectEqual(r, positions);
+    }
+}
+
+test "countPositions 7x7 semirandom 2" {
+    const n = 7;
+    var state = try tps.parse(n, "1,1,x5/x,12,1S,111,2S,211,2/12S,2,1C,21212S,212,21,2C/x,211S,122,2221,21,22,1/x,1,221,12,1,1,1112S/x,1,12222S,2,222,112121S,122/1,x,1,x,2,12,11S 2 41");
+    const results = [_]u64{
+        1,
+        253,
+        63284,
+        16374739,
+        3821510016,
     };
     for (results, 0..) |r, depth| {
         const before = state;
@@ -834,6 +832,79 @@ test "countPositions 8x8 constructed 2" {
         92372,
         9968672,
         362489760,
+    };
+    for (results, 0..) |r, depth| {
+        const before = state;
+        const positions = countPositions(n, &state, @truncate(depth));
+        try std.testing.expectEqual(before, state);
+        try std.testing.expectEqual(r, positions);
+    }
+}
+
+test "countPositions 5x5 capstone blocking smash" {
+    const n = 5;
+    var state = try tps.parse(n, "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7");
+    const results = [_]u64{
+        1,
+        55,
+        3314,
+        175900,
+        10062310,
+        516323231,
+    };
+    for (results, 0..) |r, depth| {
+        const before = state;
+        const positions = countPositions(n, &state, @truncate(depth));
+        try std.testing.expectEqual(before, state);
+        try std.testing.expectEqual(r, positions);
+    }
+}
+
+test "countPositions 6x6 capstone blocking smash" {
+    const n = 6;
+    var state = try tps.parse(n, "x6/x4,1S,x/x2,21111S,1C,22122C,x/x6/x6/x6 2 11");
+    const results = [_]u64{
+        1,
+        95,
+        11683,
+        1035124,
+        111863932,
+    };
+    for (results, 0..) |r, depth| {
+        const before = state;
+        const positions = countPositions(n, &state, @truncate(depth));
+        try std.testing.expectEqual(before, state);
+        try std.testing.expectEqual(r, positions);
+    }
+}
+
+test "countPositions 7x7 capstone blocking smash" {
+    const n = 7;
+    var state = try tps.parse(n, "x7/1C,1112S,x,112211C,2S,2C,1S/x7/x3,222C,x3/x3,2S,x3/x3,1S,x3/x7 1 10");
+    const results = [_]u64{
+        1,
+        112,
+        14248,
+        1693182,
+        207813633,
+    };
+    for (results, 0..) |r, depth| {
+        const before = state;
+        const positions = countPositions(n, &state, @truncate(depth));
+        try std.testing.expectEqual(before, state);
+        try std.testing.expectEqual(r, positions);
+    }
+}
+
+test "countPositions 8x8 capstone blocking smash" {
+    const n = 8;
+    var state = try tps.parse(n, "x,1S,1C,1S,x4/1,11,11111C,2S,2C,2S,2S,2S/x8/x8/x2,2C,x5/x2,1S,x5/x2,1S,x5/x2,1S,x5 1 14");
+    const results = [_]u64{
+        1,
+        148,
+        16516,
+        2446613,
+        272421987,
     };
     for (results, 0..) |r, depth| {
         const before = state;
