@@ -4,6 +4,7 @@ pub fn build(b: *std.Build) void {
     // options
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const opts = .{ .target = target, .optimize = optimize };
 
     // modules
     const exe_mod = b.createModule(.{
@@ -20,8 +21,10 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     // dependencies
-    const clap = b.dependency("clap", .{});
-    exe.root_module.addImport("clap", clap.module("clap"));
+    const clap = b.dependency("clap", opts).module("clap");
+    exe.root_module.addImport("clap", clap);
+    const zbench = b.dependency("zbench", opts).module("zbench");
+    exe.root_module.addImport("zbench", zbench);
 
     // run cmd
     const run_cmd = b.addRunArtifact(exe);
