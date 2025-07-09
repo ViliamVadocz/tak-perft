@@ -1,5 +1,5 @@
 const std = @import("std");
-const stdout = std.io.getStdIn().writer();
+const stdout = std.io.getStdOut().writer();
 const stderr = std.io.getStdErr().writer();
 
 const clap = @import("clap");
