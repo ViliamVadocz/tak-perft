@@ -591,21 +591,8 @@ test "countMoves equal to countPositionsRec" {
     }
 }
 
-test "countPositions 3x3 opening" {
-    const n = 3;
-    var state = try tps.parse(n, "x3/x3/x3 1 1");
-    const results = [_]u64{
-        1,
-        9,
-        72,
-        1200,
-        17792,
-        271812,
-        3712952,
-        52364896,
-        679639648,
-        9209357840,
-    };
+fn testPerft(n: comptime_int, tps_str: []const u8, results: []const u64) !void {
+    var state = try tps.parse(n, tps_str);
     for (results, 0..) |r, depth| {
         const before = state;
         const positions = countPositions(n, &state, @truncate(depth));
@@ -614,302 +601,28 @@ test "countPositions 3x3 opening" {
     }
 }
 
-test "countPositions 4x4 opening" {
-    const n = 4;
-    var state = try tps.parse(n, "x4/x4/x4/x4 1 1");
-    const results = [_]u64{
-        1,
-        16,
-        240,
-        7440,
-        216464,
-        6468872,
-        181954216,
-        5231815136,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
+test "countPositions openings" {
+    try testPerft(3, "x3/x3/x3 1 1", &[_]u64{ 1, 9, 72, 1200, 17792, 271812, 3712952, 52364896, 679639648, 9209357840 });
+    try testPerft(4, "x4/x4/x4/x4 1 1", &[_]u64{ 1, 16, 240, 7440, 216464, 6468872, 181954216, 5231815136 });
+    try testPerft(5, "x5/x5/x5/x5/x5 1 1", &[_]u64{ 1, 25, 600, 43320, 2999784, 187855252, 11293470152 });
+    try testPerft(6, "x6/x6/x6/x6/x6/x6 1 1", &[_]u64{ 1, 36, 1260, 132720, 13586048, 1253506520 });
+    try testPerft(7, "x7/x7/x7/x7/x7/x7/x7 1 1", &[_]u64{ 1, 49, 2352, 339696, 48051008, 6813380628 });
+    try testPerft(8, "x8/x8/x8/x8/x8/x8/x8/x8 1 1", &[_]u64{ 1, 64, 4032, 764064, 142512336, 26642455192 });
 }
 
-test "countPositions 5x5 opening" {
-    const n = 5;
-    var state = try tps.parse(n, "x5/x5/x5/x5/x5 1 1");
-    const results = [_]u64{
-        1,
-        25,
-        600,
-        43320,
-        2999784,
-        187855252,
-        11293470152,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
+test "countPositions complicated" {
+    try testPerft(6, "x,2,2,22S,2,111S/21S,22C,112,x,1112S,11S/x,2,112212,2,2S,2/x,2,121122,x,1112,211/21C,x,1,2S,21S,x/2S,x,212,1S,12S,1S 1 33", &[_]u64{ 1, 56, 17322, 1419637, 280504959 });
+    try testPerft(6, "x2,2,22,2C,1/21221S,1112,x,2211,1,2/x2,111S,x,11S,12S/11S,1S,2S,2,12S,1211C/x,12S,2,122S,x,212S/12,x2,1S,22222S,21121 2 31", &[_]u64{ 1, 108, 11169, 991034, 92392763 });
+    try testPerft(6, "2,x,2,111S,2,12/2,122S,2122,1S,x,1/x,111,1,11S,x2/21122112C,x,212S,2S,2,1212S/1,112S,21221S,2S,x2/21,222,x,12S,x2 2 30", &[_]u64{ 1, 197, 15300, 2616619, 215768669 });
+    try testPerft(7, "1,x2,22S,1,x2/1,2S,122,1S,1,12,22/2,1,x,2,1221C,11S,21/x,1211S,221,1,12122S,121,1/2,122C,212111,1S,22,12,1/2S,2,x,12122,2,21,2S/x2,1S,1,2,1,2 2 41", &[_]u64{ 1, 203, 43807, 9102472, 1944603576 });
+    try testPerft(7, "1,1,x5/x,12,1S,111,2S,211,2/12S,2,1C,21212S,212,21,2C/x,211S,122,2221,21,22,1/x,1,221,12,1,1,1112S/x,1,12222S,2,222,112121S,122/1,x,1,x,2,12,11S 2 41", &[_]u64{ 1, 253, 63284, 16374739, 3821510016 });
+    try testPerft(8, "2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,111222111C,x,2S,1S,2S/2S,1S,2S,x,222111222C,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S 2 40", &[_]u64{ 1, 42, 1298, 11632, 223448, 4623236, 131138098 });
+    try testPerft(8, "x,1,1,1S,1S,1S,1S,1S/1,x,1,1,2S,2S,1C,1S/1,1,x,1,1,2C,2S,1S/1S,1,1,x,1,1,2S,1S/1S,2S,1,1,x,1,1,1S/1S,2S,2C,1,1,x,1,1/1S,1C,2S,2S,1,1,x,1/1S,1S,1S,1S,1S,1,1,x 2 50", &[_]u64{ 1, 32, 3400, 92372, 9968672, 362489760 });
 }
 
-test "countPositions 6x6 opening" {
-    const n = 6;
-    var state = try tps.parse(n, "x6/x6/x6/x6/x6/x6 1 1");
-    const results = [_]u64{
-        1,
-        36,
-        1260,
-        132720,
-        13586048,
-        1253506520,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 7x7 opening" {
-    const n = 7;
-    var state = try tps.parse(n, "x7/x7/x7/x7/x7/x7/x7 1 1");
-    const results = [_]u64{
-        1,
-        49,
-        2352,
-        339696,
-        48051008,
-        6813380628,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 8x8 opening" {
-    const n = 8;
-    var state = try tps.parse(n, "x8/x8/x8/x8/x8/x8/x8/x8 1 1");
-    const results = [_]u64{
-        1,
-        64,
-        4032,
-        764064,
-        142512336,
-        26642455192,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 6x6 random 1" {
-    const n = 6;
-    var state = try tps.parse(n, "x,2,2,22S,2,111S/21S,22C,112,x,1112S,11S/x,2,112212,2,2S,2/x,2,121122,x,1112,211/21C,x,1,2S,21S,x/2S,x,212,1S,12S,1S 1 33");
-    const results = [_]u64{
-        1,
-        56,
-        17322,
-        1419637,
-        280504959,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 6x6 random 2" {
-    const n = 6;
-    var state = try tps.parse(n, "x2,2,22,2C,1/21221S,1112,x,2211,1,2/x2,111S,x,11S,12S/11S,1S,2S,2,12S,1211C/x,12S,2,122S,x,212S/12,x2,1S,22222S,21121 2 31");
-    const results = [_]u64{
-        1,
-        108,
-        11169,
-        991034,
-        92392763,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 6x6 random 3" {
-    const n = 6;
-    var state = try tps.parse(n, "2,x,2,111S,2,12/2,122S,2122,1S,x,1/x,111,1,11S,x2/21122112C,x,212S,2S,2,1212S/1,112S,21221S,2S,x2/21,222,x,12S,x2 2 30");
-    const results = [_]u64{
-        1,
-        197,
-        15300,
-        2616619,
-        215768669,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 7x7 semirandom 1" {
-    const n = 7;
-    var state = try tps.parse(n, "1,x2,22S,1,x2/1,2S,122,1S,1,12,22/2,1,x,2,1221C,11S,21/x,1211S,221,1,12122S,121,1/2,122C,212111,1S,22,12,1/2S,2,x,12122,2,21,2S/x2,1S,1,2,1,2 2 41");
-    const results = [_]u64{
-        1,
-        203,
-        43807,
-        9102472,
-        1944603576,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 7x7 semirandom 2" {
-    const n = 7;
-    var state = try tps.parse(n, "1,1,x5/x,12,1S,111,2S,211,2/12S,2,1C,21212S,212,21,2C/x,211S,122,2221,21,22,1/x,1,221,12,1,1,1112S/x,1,12222S,2,222,112121S,122/1,x,1,x,2,12,11S 2 41");
-    const results = [_]u64{
-        1,
-        253,
-        63284,
-        16374739,
-        3821510016,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 8x8 constructed 1" {
-    const n = 8;
-    var state = try tps.parse(n, "2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,111222111C,x,2S,1S,2S/2S,1S,2S,x,222111222C,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S 2 40");
-    const results = [_]u64{
-        1,
-        42,
-        1298,
-        11632,
-        223448,
-        4623236,
-        131138098,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 8x8 constructed 2" {
-    const n = 8;
-    var state = try tps.parse(n, "x,1,1,1S,1S,1S,1S,1S/1,x,1,1,2S,2S,1C,1S/1,1,x,1,1,2C,2S,1S/1S,1,1,x,1,1,2S,1S/1S,2S,1,1,x,1,1,1S/1S,2S,2C,1,1,x,1,1/1S,1C,2S,2S,1,1,x,1/1S,1S,1S,1S,1S,1,1,x 2 50");
-    const results = [_]u64{
-        1,
-        32,
-        3400,
-        92372,
-        9968672,
-        362489760,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 5x5 capstone blocking smash" {
-    const n = 5;
-    var state = try tps.parse(n, "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7");
-    const results = [_]u64{
-        1,
-        55,
-        3314,
-        175900,
-        10062310,
-        516323231,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 6x6 capstone blocking smash" {
-    const n = 6;
-    var state = try tps.parse(n, "x6/x4,1S,x/x2,21111S,1C,22122C,x/x6/x6/x6 2 11");
-    const results = [_]u64{
-        1,
-        95,
-        11683,
-        1035124,
-        111863932,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 7x7 capstone blocking smash" {
-    const n = 7;
-    var state = try tps.parse(n, "x7/1C,1112S,x,112211C,2S,2C,1S/x7/x3,222C,x3/x3,2S,x3/x3,1S,x3/x7 1 10");
-    const results = [_]u64{
-        1,
-        112,
-        14248,
-        1693182,
-        207813633,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
-}
-
-test "countPositions 8x8 capstone blocking smash" {
-    const n = 8;
-    var state = try tps.parse(n, "x,1S,1C,1S,x4/1,11,11111C,2S,2C,2S,2S,2S/x8/x8/x2,2C,x5/x2,1S,x5/x2,1S,x5/x2,1S,x5 1 14");
-    const results = [_]u64{
-        1,
-        148,
-        16516,
-        2446613,
-        272421987,
-    };
-    for (results, 0..) |r, depth| {
-        const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
-        try std.testing.expectEqual(before, state);
-        try std.testing.expectEqual(r, positions);
-    }
+test "countPositions capstone blocking smash" {
+    try testPerft(5, "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7", &[_]u64{ 1, 55, 3314, 175900, 10062310, 516323231 });
+    try testPerft(6, "x6/x4,1S,x/x2,21111S,1C,22122C,x/x6/x6/x6 2 11", &[_]u64{ 1, 95, 11683, 1035124, 111863932 });
+    try testPerft(7, "x7/1C,1112S,x,112211C,2S,2C,1S/x7/x3,222C,x3/x3,2S,x3/x3,1S,x3/x7 1 10", &[_]u64{ 1, 112, 14248, 1693182, 207813633 });
+    try testPerft(8, "x,1S,1C,1S,x4/1,11,11111C,2S,2C,2S,2S,2S/x8/x8/x2,2C,x5/x2,1S,x5/x2,1S,x5/x2,1S,x5 1 14", &[_]u64{ 1, 148, 16516, 2446613, 272421987 });
 }
