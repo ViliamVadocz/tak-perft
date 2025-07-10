@@ -12,3 +12,10 @@ pub fn Reserves(n: comptime_int) type {
         else => unreachable,
     };
 }
+
+test "reserves fit in u8" {
+    const std = @import("std");
+    inline for (state.min_n..state.max_n + 1) |n| {
+        try std.testing.expect(@bitSizeOf(Reserves(n)) <= @bitSizeOf(u8));
+    }
+}

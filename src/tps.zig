@@ -22,6 +22,7 @@ pub fn determineSize(tps: []const u8) ?u8 {
 pub const ParseTPSError = error{
     EmptyTps,
     InvalidPlayerNumber,
+    TwoSlashesAfterEachOther,
     TwoCommasAfterEachOther,
     MissingNumbersInStack,
     InvalidColorInStack,
@@ -48,6 +49,7 @@ pub fn parse(n: comptime_int, tps: []const u8) (ParseTPSError || std.fmt.ParseIn
     var bit: Bitboard(n) = 1;
 
     while (rows.next()) |row| {
+        if (row.len == 0) return error.TwoSlashesAfterEachOther;
         const before_row = index;
         var items = splitScalar(u8, row, ',');
         while (items.next()) |item| {
@@ -107,4 +109,14 @@ pub fn parse(n: comptime_int, tps: []const u8) (ParseTPSError || std.fmt.ParseIn
     }
 
     return out;
+}
+
+test "parse errors" {
+    try std.testing.expectError(error.EmptyTps, parse(3, ""));
+    try std.testing.expectError(error.InvalidColorInStack, parse(3, "x3/123,x2/x3 1 10"));
+    try std.testing.expectError(error.InvalidPlayerNumber, parse(3, "x3/x3/x3 3 10"));
+    try std.testing.expectError(error.MissingNumbersInStack, parse(3, "x3/S,x2/x3 1 10"));
+    try std.testing.expectError(error.TwoCommasAfterEachOther, parse(3, "x3/x,x,,x/x3 1 10"));
+    try std.testing.expectError(error.TwoSlashesAfterEachOther, parse(3, "x3//x3/x3 1 10"));
+    try std.testing.expectError(error.WrongNumberOfItemsInRow, parse(3, "x4/x3/x3 1 10"));
 }

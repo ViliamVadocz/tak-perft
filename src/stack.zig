@@ -57,8 +57,6 @@ pub fn Stack(n: comptime_int) type {
     };
 }
 
-// TODO: Proper tests
-
 test "add_one is same as add" {
     var stack_1 = Stack(6).init();
     var stack_2 = Stack(6).init();
@@ -71,19 +69,40 @@ test "add_one is same as add" {
     try std.testing.expectEqual(stack_1, stack_2);
 }
 
-test "take and add leaves the stack save" {
+test "take and add leaves the stack same" {
     var stack = Stack(5).init();
     stack.add(8, 0b1100_1010);
+    try std.testing.expectEqual(8, stack.size());
     const after_add = stack;
     const colors = stack.take(5);
+    try std.testing.expectEqual(3, stack.size());
     stack.add(5, colors);
     try std.testing.expectEqual(after_add, stack);
+    try std.testing.expectEqual(8, stack.size());
 }
 
-test "Stack.take" {
+test "taking from a stack" {
     var stack = Stack(7).init();
     stack.add(8, 0b0001_1101);
     stack.add(8, 0b0101_1100);
+    try std.testing.expectEqual(16, stack.size());
     const taken = stack.take(6);
     try std.testing.expectEqual(0b01_1100, taken);
+    try std.testing.expectEqual(10, stack.size());
+}
+
+test "top of stack" {
+    var stack = Stack(3).init();
+    stack.add(8, 0b0110_1001);
+    try std.testing.expectEqual(.Black, stack.top());
+    try std.testing.expectEqual(8, stack.size());
+    _ = stack.take(3);
+    try std.testing.expectEqual(.Black, stack.top());
+    try std.testing.expectEqual(5, stack.size());
+    _ = stack.take(1);
+    try std.testing.expectEqual(.White, stack.top());
+    try std.testing.expectEqual(4, stack.size());
+    _ = stack.take(2);
+    try std.testing.expectEqual(.Black, stack.top());
+    try std.testing.expectEqual(2, stack.size());
 }

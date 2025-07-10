@@ -10,6 +10,7 @@ const tps = @import("tps.zig");
 pub const min_n = 3;
 pub const max_n = 8;
 
+/// Assert at compile time that the function is using the supported sizes.
 pub fn assertSize(n: comptime_int) void {
     switch (n) {
         min_n...max_n => return,
@@ -26,7 +27,11 @@ pub fn State(n: comptime_int) type {
         noble: BitBoard(n) = 0,
         road: BitBoard(n) = 0,
         white: BitBoard(n) = 0,
-        black: BitBoard(n) = 0, // TODO: Maybe remove since `black = (noble | road) & ~white`
+        black: BitBoard(n) = 0, // TODO: Remove? `black = (noble | road) & ~white`
+
+        // NOTE:
+        // capstones = noble & road
+        // walls = noble & ~road
 
         white_reserves: Reserves(n) = .{},
         black_reserves: Reserves(n) = .{},
@@ -35,9 +40,15 @@ pub fn State(n: comptime_int) type {
             return .{};
         }
 
+        /// Check whether the state is internally consistent.
+        ///
+        /// An example of when this function would fail is when
+        /// the number of reserves depleted does not match the
+        /// number of pieces on the board according to the stacks.
         pub fn checkInvariants(self: State(n)) void {
-            const mode = @import("builtin").mode;
+            const mode = comptime @import("builtin").mode;
             if (mode != .Debug and mode != .ReleaseSafe) return;
+            // count used pieces and recompute bitboards
             var white_flats: u8 = 0;
             var black_flats: u8 = 0;
             var white: BitBoard(n) = 0;
@@ -71,6 +82,7 @@ pub fn State(n: comptime_int) type {
                     colors >>= 1;
                 }
             }
+            // adjust counts for capstones
             const caps = self.noble & self.road;
             const white_caps = @popCount(caps & self.white);
             const black_caps = @popCount(caps & self.black);
@@ -90,9 +102,10 @@ pub fn State(n: comptime_int) type {
         }
 
         /// Check if it is the opening (first two plies).
+        /// We check based on placed flats.
         pub fn opening(self: State(n)) bool {
             if (@popCount(self.road) > 1) return false;
-            const starting: Reserves(n) = .{};
+            const starting: Reserves(n) = comptime .{};
             const white_flats = starting.flats - self.white_reserves.flats;
             const black_flats = starting.flats - self.black_reserves.flats;
             return white_flats == 0 and black_flats < 2;
