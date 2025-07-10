@@ -8,8 +8,7 @@ const perft = @import("perft.zig");
 const state = @import("state.zig");
 const tps = @import("tps.zig");
 
-// for tests
-comptime {
+comptime { // for tests
     _ = @import("bitboard.zig");
     _ = @import("color.zig");
     _ = @import("lut.zig");
@@ -21,7 +20,7 @@ comptime {
 }
 
 const params = clap.parseParamsComptime(
-    \\-h, --help        Display this help and exit.
+    \\-h, --help        Display this message and exit.
     \\-t, --tps <str>   Optional position given as TPS.
     \\<u8>              Specify the depth to search.
 );
@@ -58,6 +57,7 @@ pub fn main() !void {
         return stderr.print(
             \\Could not determine a valid size from the TPS.
             \\Only sizes between {d} and {d} are supported.
+            \\
         , .{ state.min_n, state.max_n });
     };
     return switch (n) {
@@ -74,8 +74,9 @@ pub fn main() !void {
 fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8) !void {
     var game = tps.parse(n, tps_str) catch |err| {
         return stderr.print(
-            \\Unable to parse TPS \"{s}\".
-            \\Encountered error {}.
+            \\Unable to parse TPS "{s}".
+            \\Encountered {}.
+            \\
         , .{ tps_str, err });
     };
     const positions = perft.countPositions(n, &game, depth);
