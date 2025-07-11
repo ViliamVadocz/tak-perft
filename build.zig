@@ -38,6 +38,7 @@ pub fn build(b: *std.Build) void {
     // test command
     const exe_unit_tests = b.addTest(.{
         .root_module = exe_mod,
+        .filter = b.option([]const u8, "test-filter", "Only run tests that match this filter"),
     });
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
     const test_step = b.step("test", "Run unit tests");
