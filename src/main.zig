@@ -9,6 +9,7 @@ const state = @import("state.zig");
 const tps = @import("tps.zig");
 
 comptime { // for tests
+    _ = @import("bench.zig");
     _ = @import("bitboard.zig");
     _ = @import("color.zig");
     _ = @import("lut.zig");
