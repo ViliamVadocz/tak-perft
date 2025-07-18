@@ -52,7 +52,7 @@
 const std = @import("std");
 const state = @import("state.zig");
 
-pub const spreads: [8][8]u8 = blk: {
+pub const spreads = blk: {
     var lut: [8][8]u8 = @splat(@splat(0));
     for (1..9) |k| {
         for (1..9) |d| {
@@ -62,7 +62,7 @@ pub const spreads: [8][8]u8 = blk: {
     break :blk lut;
 };
 
-pub const smashes: [8][8]u8 = blk: {
+pub const smashes = blk: {
     var lut: [8][8]u8 = @splat(@splat(0));
     for (1..9) |k| {
         for (0..8) |d| { // smashing with dist = 0 is possible
