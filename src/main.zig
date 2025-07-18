@@ -18,6 +18,7 @@ comptime { // for tests
     _ = @import("stack.zig");
     _ = @import("state.zig");
     _ = @import("tps.zig");
+    _ = @import("zobrist.zig");
 }
 
 const params = clap.parseParamsComptime(
