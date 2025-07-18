@@ -58,23 +58,20 @@ const stack_color = blk: {
     break :blk lut;
 };
 pub const stack_change = blk: {
-    @setEvalBranchQuota(2_000);
+    @setEvalBranchQuota(1_000_000);
     const size = state.max_n * state.max_n;
-    const max_height = @bitSizeOf(u128) - 1;
+    const max_height = 16; // limit to small stacks
     const max_amount = state.max_n;
-    var lut: [max_height - 1][max_amount][1 << max_amount][size]HashSize = undefined;
-    for (0..max_height - 1) |height| {
-        for (1..max_amount) |amount| {
-            for (0..(1 << amount)) |pattern| {
-                for (0..size) |i| {
-                    var hash = 0;
-                    for (0..amount) |h| {
-                        const current_height = height + amount - h; // going top to bottom
-                        const color = (pattern >> h) & 1;
-                        hash ^= stack_color[color][current_height][i];
-                    }
-                    lut[height][amount - 1][pattern][i] = hash;
-                }
+    var lut: [max_height][1 << (max_amount + 1)][size]HashSize = undefined;
+    for (0..max_height) |height| {
+        lut[height][0] = @splat(0); // never accessed, but better to be safe than sorry
+        lut[height][1] = @splat(0); // invalid amount, but used for dynamic programming
+        for (2..(1 << (max_amount + 1))) |pattern| {
+            for (0..size) |i| {
+                const color = pattern & 1;
+                const amount = @bitSizeOf(@TypeOf(pattern)) - @clz(pattern);
+                const current_height = height + amount;
+                lut[height][pattern][i] = lut[height][pattern >> 1][i] ^ stack_color[color][current_height][i];
             }
         }
     }
@@ -111,4 +108,6 @@ test "zobrist" {
     const s = try tps.parse(8, "x,2,2,x,1,x2,1/x,2,2,1,1,2,x,1/1,1S,2,1,12,x,222221S,1/x,1,2C,222221C,1,12S,1,1/1,1,221C,11112C,1,1,1,1/2,21S,2,2,2,2,2S,1/1,2221C,21112C,2,2,2,21,2222221S/2,2221S,2,12,2,1,21,2 1 76");
     const hash = getHash(8, s);
     std.debug.print("\nhash: {d}\n", .{hash});
+    std.debug.print("stack_change: {d}\n", .{@sizeOf(stack_change)});
+    std.debug.print("stack color: {d}\n", .{@sizeOf(stack_color)});
 }
