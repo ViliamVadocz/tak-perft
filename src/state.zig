@@ -6,6 +6,8 @@ const Color = @import("color.zig").Color;
 const Reserves = @import("reserves.zig").Reserves;
 const Stack = @import("stack.zig").Stack;
 const tps = @import("tps.zig");
+const zobrist = @import("zobrist.zig");
+const HashType = zobrist.HashType;
 
 pub const min_n = 3;
 pub const max_n = 8;
@@ -35,6 +37,8 @@ pub fn State(n: comptime_int) type {
 
         white_reserves: Reserves(n) = .{},
         black_reserves: Reserves(n) = .{},
+
+        hash: HashType = 0,
 
         pub fn init() State(n) {
             return .{};
@@ -89,16 +93,20 @@ pub fn State(n: comptime_int) type {
             white_flats -= white_caps;
             black_flats -= black_caps;
 
+            // check bitboards
             std.debug.assert(self.white == white);
             std.debug.assert(self.black == black);
             std.debug.assert(self.white & self.black == 0);
             std.debug.assert(self.white | self.black == self.road | self.noble);
             std.debug.assert(@popCount(self.road & self.noble) == white_caps + black_caps);
+            // check reserves
             const default_reserves = Reserves(n){};
             std.debug.assert(self.white_reserves.flats + white_flats == default_reserves.flats);
             std.debug.assert(self.black_reserves.flats + black_flats == default_reserves.flats);
             std.debug.assert(self.white_reserves.caps + white_caps == default_reserves.caps);
             std.debug.assert(self.black_reserves.caps + black_caps == default_reserves.caps);
+            // check hash
+            std.debug.assert(self.hash == zobrist.getHash(n, self));
         }
 
         /// Check if it is the opening (first two plies).

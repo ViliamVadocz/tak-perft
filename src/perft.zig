@@ -10,6 +10,7 @@ const State = @import("state.zig").State;
 const tps = @import("tps.zig");
 const Reserves = @import("reserves.zig").Reserves;
 const Stack = @import("stack.zig").Stack;
+const zobrist = @import("zobrist.zig");
 
 pub fn countPositions(n: comptime_int, state: *State(n), depth: u8) u64 {
     state.checkInvariants();
@@ -40,6 +41,7 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(stack.size() == 1);
         pieces.* |= bit;
         state.road |= bit;
+        state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
         positions += countPositions(n, state, depth);
         _ = stack.take(1);
         std.debug.assert(stack.size() == 0);
@@ -47,6 +49,7 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(pieces.* & bit == 0);
         state.road ^= bit;
         std.debug.assert(state.road & bit == 0);
+        state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
     }
     reserves.*.flats += 1;
     state.player.advance();
@@ -88,6 +91,7 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         stack.add_one(color);
         std.debug.assert(stack.size() == 1);
         pieces.* |= bit;
+        state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
         // flat
         state.road |= bit;
         positions += countPositions(n, state, depth);
@@ -95,6 +99,7 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(state.road & bit == 0);
         // wall
         state.noble |= bit;
+        state.hash ^= zobrist.wall[i];
         positions += countPositions(n, state, depth);
         state.noble ^= bit;
         std.debug.assert(state.noble & bit == 0);
@@ -102,6 +107,8 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(stack.size() == 0);
         pieces.* ^= bit;
         std.debug.assert(pieces.* & bit == 0);
+        state.hash ^= zobrist.wall[i];
+        state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
     }
     reserves.flats += 1;
     return positions;
@@ -124,6 +131,8 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         stack.add_one(color);
         std.debug.assert(stack.size() == 1);
         pieces.* |= bit;
+        const capstone_placement_hash = zobrist.stack_color[@intFromEnum(color)][0][i] ^ zobrist.capstone[i];
+        state.hash ^= capstone_placement_hash;
         // cap
         state.road |= bit;
         state.noble |= bit;
@@ -136,6 +145,7 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(stack.size() == 0);
         pieces.* ^= bit;
         std.debug.assert(pieces.* & bit == 0);
+        state.hash ^= capstone_placement_hash;
     }
     reserves.caps += 1;
     return positions;
@@ -165,6 +175,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
         std.debug.assert(hand <= 8);
         const noble = (state.noble & start_bit) != 0;
         const road = (state.road & start_bit) != 0;
+        const hash_before = state.hash;
         for ([_]bitboard.Direction{ .Left, .Up, .Right, .Down }) |direction| {
             const ray = bitboard.ray(n, direction, i);
             const hits = state.noble & ray;
@@ -185,7 +196,8 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 my_pieces.* ^= start_bit; // unset my pieces, will reset based on top of stack later
                 std.debug.assert(my_pieces.* & start_bit == 0);
                 state.noble &= ~start_bit; // you cannot leave a wall or capstone
-                if (start_stack.size() > 0) {
+                const stack_size_after_pickup = start_stack.size();
+                if (stack_size_after_pickup > 0) {
                     state.road |= start_bit;
                     switch (start_stack.top()) {
                         .White => state.white |= start_bit,
@@ -196,6 +208,15 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 }
                 std.debug.assert(state.white & state.black == 0);
                 std.debug.assert(state.white ^ state.black == state.noble | state.road);
+                // update hash at pickup
+                state.hash ^= zobrist.hash_update_after_stack_change(n, stack_size_after_pickup, picked_up_stones, pickup_amount, i);
+                if (noble) {
+                    if (road) {
+                        state.hash ^= zobrist.capstone[i];
+                    } else {
+                        state.hash ^= zobrist.wall[i];
+                    }
+                }
                 // drop stones based on pattern
                 dropped_times = 0;
                 var p = pattern & (pattern - 1);
@@ -216,6 +237,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                     std.debug.assert(hand - dropped < 8);
                     const colors = bitboard.extractAmountAt(picked_up_stones, dropping, @truncate(hand - dropped));
                     // std.debug.print("dropping: {d}, colors: {b}\n", .{ dropping, colors });
+                    state.hash ^= zobrist.hash_update_after_stack_change(n, stack.size(), colors, dropping, moved_index);
                     stack.add(dropping, colors);
                     state.road |= bit;
                     switch (stack.top()) {
@@ -239,11 +261,18 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 const final_bit = @as(BitBoard(n), 1) << moved_index;
                 std.debug.assert(state.noble & final_bit == 0);
                 const final_stack = &state.stacks[moved_index];
+                // update hash after drop
+                state.hash ^= zobrist.hash_update_after_stack_change(n, final_stack.size(), rest, final_drop, moved_index);
                 final_stack.add(final_drop, rest);
                 my_pieces.* |= final_bit;
                 opp_pieces.* &= ~final_bit;
                 if (noble) {
                     state.noble |= final_bit;
+                    if (road) {
+                        state.hash ^= zobrist.capstone[moved_index];
+                    } else {
+                        state.hash ^= zobrist.wall[moved_index];
+                    }
                 } // final bit cannot already be noble
                 if (road) {
                     state.road |= final_bit;
@@ -266,6 +295,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                     _ = state.stacks[moved_index].take(@truncate(amount));
                     moved_index = bitboard.moveIndex(n, moved_index, direction);
                 }
+                state.hash = hash_before;
             }
         }
     }
@@ -296,6 +326,8 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
         const hand = @min(n, start_stack.size()); // carry limit
         std.debug.assert(hand > 0);
         std.debug.assert(hand <= 8);
+        // update hash at pickup
+        const hash_before = state.hash;
         for ([_]bitboard.Direction{ .Left, .Up, .Right, .Down }) |direction| {
             const ray = bitboard.ray(n, direction, i);
             const wall_hits = walls & ray;
@@ -320,7 +352,8 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 std.debug.assert(state.noble & start_bit == 0);
                 my_pieces.* ^= start_bit;
                 std.debug.assert(my_pieces.* & start_bit == 0);
-                if (start_stack.size() > 0) {
+                const stack_size_after_pickup = start_stack.size();
+                if (stack_size_after_pickup > 0) {
                     std.debug.assert(@popCount(state.road & start_bit) == 1);
                     switch (start_stack.top()) {
                         .White => state.white |= start_bit,
@@ -331,6 +364,9 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 }
                 std.debug.assert(state.white & state.black == 0);
                 std.debug.assert(state.white ^ state.black == state.noble | state.road);
+                // update hash after pickup
+                state.hash ^= zobrist.hash_update_after_stack_change(n, stack_size_after_pickup, picked_up_stones, pickup_amount, i);
+                state.hash ^= zobrist.capstone[i]; // always capstone leaving
                 // drop stones based on pattern
                 dropped_times = 0;
                 var p = pattern & (pattern - 1);
@@ -350,6 +386,7 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                     dropped += dropping;
                     std.debug.assert(hand - dropped < 8);
                     const colors = bitboard.extractAmountAt(picked_up_stones, dropping, @truncate(hand - dropped));
+                    state.hash ^= zobrist.hash_update_after_stack_change(n, stack.size(), colors, dropping, moved_index);
                     stack.add(dropping, colors);
                     state.road |= bit;
                     switch (stack.top()) {
@@ -373,6 +410,8 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 std.debug.assert(@popCount(state.noble & final_bit) == 1);
                 std.debug.assert(@popCount(~state.road & final_bit) == 1);
                 const final_stack = &state.stacks[moved_index];
+                state.hash ^= zobrist.hash_update_after_stack_change(n, final_stack.size(), rest, final_drop, moved_index);
+                state.hash ^= zobrist.wall[moved_index] ^ zobrist.capstone[moved_index]; // was wall, now is capstone
                 final_stack.add(final_drop, rest);
                 my_pieces.* |= final_bit;
                 opp_pieces.* &= ~final_bit;
@@ -396,6 +435,7 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                     _ = state.stacks[moved_index].take(@truncate(amount));
                     moved_index = bitboard.moveIndex(n, moved_index, direction);
                 }
+                state.hash = hash_before;
             }
         }
     }

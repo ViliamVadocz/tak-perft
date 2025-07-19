@@ -3,8 +3,9 @@ const state = @import("state.zig");
 const State = state.State;
 const bitboard = @import("bitboard.zig");
 const BitBoard = bitboard.BitBoard;
+const BitBoardIndex = bitboard.BitBoardIndex;
 
-const HashType = u64;
+pub const HashType = u64;
 const max_amount = state.max_n; // most that can be picked up from a stack
 const max_board_size = state.max_n * state.max_n;
 const max_height = 101; // refer to calculation in stack.zig
@@ -40,7 +41,7 @@ pub const wall = blk: {
     }
     break :blk lut;
 };
-const stack_color = blk: {
+pub const stack_color = blk: {
     @setEvalBranchQuota(1_000_000);
     const seed = 3911426766083215428; // TODO: Experiment with seeds
     var prng = std.Random.DefaultPrng.init(seed);
@@ -61,8 +62,10 @@ pub const optimized_stack_max_height = 16; // limit this optimization to small s
 const StackChangeType = [optimized_stack_max_height][1 << (max_amount + 1)][max_board_size]HashType;
 pub const stack_change: *const StackChangeType = @ptrCast(@alignCast(@embedFile("zobrist_stack_change")));
 
-/// Generate the stack_change LUT
-/// because the comptime execution is too slow.
+/// We generate the stack_change LUT as a separate build step since we want
+/// to have it done during compilation, but the normal comptime execution is
+/// too slow. Instead we compile just this file and run it, saving the LUT
+/// to a file. That file then gets embedded into the final binary (see above).
 pub fn main() !void {
     var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_state.deinit();
@@ -94,7 +97,7 @@ fn makeStackChange() StackChangeType {
 }
 
 /// Get the Zobrist hash for a state from scratch.
-fn getHash(n: comptime_int, s: State(n)) HashType {
+pub fn getHash(n: comptime_int, s: State(n)) HashType {
     state.assertSize(n);
     var hash = player[@intFromEnum(s.player)];
     const caps = s.noble & s.road;
@@ -118,6 +121,27 @@ fn getHash(n: comptime_int, s: State(n)) HashType {
             hash ^= capstone[i];
         } else if (walls & bit != 0) {
             hash ^= wall[i];
+        }
+    }
+    return hash;
+}
+
+// TODO: Check if inlining and branch hints actually do anything
+pub inline fn hash_update_after_stack_change(n: comptime_int, stack_height: usize, colors: u8, amount: u4, index: BitBoardIndex(n)) u64 {
+    std.debug.assert(amount <= 8);
+    var hash: u64 = 0;
+    if (stack_height < optimized_stack_max_height) {
+        @branchHint(.likely);
+        const color_pattern = (@as(u9, 1) << amount) | colors;
+        hash ^= stack_change[stack_height][color_pattern][index];
+    } else {
+        @branchHint(.unlikely);
+        var iter = colors;
+        for (0..amount) |h| {
+            const height = stack_height + amount - h;
+            const piece_color = iter & 1;
+            iter >>= 1;
+            hash ^= stack_color[piece_color][height][index];
         }
     }
     return hash;
