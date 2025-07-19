@@ -57,36 +57,38 @@ const stack_color = blk: {
     break :blk lut;
 };
 
-// TODO: Generate the LUT at compile time automatically
-// See: https://ziggit.dev/t/build-system-tricks/3531
-fn make_stack_change() !void {
-    const size = state.max_n * state.max_n;
-    var lut: [stack_max_height][1 << (max_amount + 1)][size]HashType = undefined;
-    for (0..stack_max_height) |height| {
+pub const optimized_stack_max_height = 16; // limit this optimization to small stacks
+const StackChangeType = [optimized_stack_max_height][1 << (max_amount + 1)][max_board_size]HashType;
+const stack_change_file_name = "zobrist_stack_change.bin";
+pub const stack_change: *const StackChangeType = @ptrCast(@alignCast(@embedFile(stack_change_file_name)));
+
+/// Generate the stack_change LUT
+/// because the comptime execution is too slow.
+fn main() !void {
+    const lut = makeStackChange();
+    const file = try std.fs.cwd().createFile(stack_change_file_name, .{});
+    try file.writeAll(@ptrCast(&lut));
+    file.close();
+}
+
+fn makeStackChange() StackChangeType {
+    var lut: StackChangeType = undefined;
+    for (0..optimized_stack_max_height) |height| {
         lut[height][0] = @splat(0); // never accessed, but better to be safe than sorry
         lut[height][1] = @splat(0); // invalid amount, but used for dynamic programming
         for (2..(1 << (max_amount + 1))) |pattern| {
-            for (0..size) |i| {
+            for (0..max_board_size) |i| {
                 const color = pattern & 1;
-                const amount = @bitSizeOf(@TypeOf(pattern)) - @clz(pattern);
-                const current_height = height + amount;
-                lut[height][pattern][i] = lut[height][pattern >> 1][i] ^ stack_color[color][current_height][i];
+                const amount = @bitSizeOf(@TypeOf(pattern)) - @clz(pattern) - 1;
+                const new_height = height + amount;
+                lut[height][pattern][i] = lut[height][pattern >> 1][i] ^ stack_color[color][new_height - 1][i];
             }
         }
     }
-
-    const file = try std.fs.cwd().createFile("zobrist.bin", .{});
-    defer file.close();
-
-    try file.writeAll(@ptrCast(&lut));
+    return lut;
 }
-// test make_stack_change {
-//     try make_stack_change();
-// }
 
-pub const stack_max_height = 16; // limit this optimization to small stacks
-pub const stack_change: *const [stack_max_height][(1 << (max_amount + 1))][max_board_size]HashType = @ptrCast(@alignCast(@embedFile("zobrist.bin")));
-
+/// Get the Zobrist hash for a state from scratch.
 fn getHash(n: comptime_int, s: State(n)) HashType {
     state.assertSize(n);
     var hash = player[@intFromEnum(s.player)];
