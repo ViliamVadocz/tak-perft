@@ -18,8 +18,8 @@ fn benchPerft(n: comptime_int, depth: comptime_int, comptime tps_str: []const u8
     }.bench;
 }
 
-test "bench perft" {
-    var bench = zbench.Benchmark.init(std.testing.allocator, .{
+pub fn main() !void {
+    var bench = zbench.Benchmark.init(std.heap.page_allocator, .{
         .time_budget_ns = 1e10, // 10 seconds
     });
     defer bench.deinit();

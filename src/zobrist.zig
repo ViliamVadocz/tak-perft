@@ -59,16 +59,21 @@ const stack_color = blk: {
 
 pub const optimized_stack_max_height = 16; // limit this optimization to small stacks
 const StackChangeType = [optimized_stack_max_height][1 << (max_amount + 1)][max_board_size]HashType;
-const stack_change_file_name = "zobrist_stack_change.bin";
-pub const stack_change: *const StackChangeType = @ptrCast(@alignCast(@embedFile(stack_change_file_name)));
+pub const stack_change: *const StackChangeType = @ptrCast(@alignCast(@embedFile("zobrist_stack_change")));
 
 /// Generate the stack_change LUT
 /// because the comptime execution is too slow.
-fn main() !void {
+pub fn main() !void {
+    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_state.deinit();
+
+    const args = try std.process.argsAlloc(arena_state.allocator());
+    std.debug.assert(args.len == 2);
+
+    var output_file = try std.fs.cwd().createFile(args[1], .{});
+    defer output_file.close();
     const lut = makeStackChange();
-    const file = try std.fs.cwd().createFile(stack_change_file_name, .{});
-    try file.writeAll(@ptrCast(&lut));
-    file.close();
+    try output_file.writeAll(@ptrCast(&lut));
 }
 
 fn makeStackChange() StackChangeType {
