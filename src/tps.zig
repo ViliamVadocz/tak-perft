@@ -8,6 +8,7 @@ const Reserves = @import("reserves.zig").Reserves;
 const Stack = @import("stack.zig").Stack;
 const state = @import("state.zig");
 const State = state.State;
+const zobrist = @import("zobrist.zig");
 
 pub fn determineSize(tps: []const u8) ?u8 {
     var count: u8 = 1;
@@ -108,6 +109,7 @@ pub fn parse(n: comptime_int, tps: []const u8) (ParseTPSError || std.fmt.ParseIn
         if (index - before_row != n) return error.WrongNumberOfItemsInRow;
     }
 
+    out.hash = zobrist.getHash(n, out);
     return out;
 }
 

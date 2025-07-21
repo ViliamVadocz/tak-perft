@@ -4,19 +4,14 @@ const State = state.State;
 const bitboard = @import("bitboard.zig");
 const BitBoard = bitboard.BitBoard;
 const BitBoardIndex = bitboard.BitBoardIndex;
+const Color = @import("color.zig").Color;
 
 pub const HashType = u64;
 const max_amount = state.max_n; // most that can be picked up from a stack
 const max_board_size = state.max_n * state.max_n;
 const max_height = 101; // refer to calculation in stack.zig
 
-pub const player = blk: {
-    const seed = 5948797944002618758; // TODO: Experiment with seeds
-    var prng = std.Random.DefaultPrng.init(seed);
-    const rand = prng.random();
-
-    break :blk [2]HashType{ rand.int(HashType), rand.int(HashType) };
-};
+pub const player_black = 5948797944002618758; // TODO: Experiment
 pub const capstone = blk: {
     @setEvalBranchQuota(2_000);
     const seed = 9622543866434868678; // TODO: Experiment with seeds
@@ -99,7 +94,7 @@ fn makeStackChange() StackChangeType {
 /// Get the Zobrist hash for a state from scratch.
 pub fn getHash(n: comptime_int, s: State(n)) HashType {
     state.assertSize(n);
-    var hash = player[@intFromEnum(s.player)];
+    var hash: u64 = if (s.player == Color.Black) player_black else 0;
     const caps = s.noble & s.road;
     const walls = s.noble & ~s.road;
     for (0..n * n) |i| {
@@ -128,6 +123,7 @@ pub fn getHash(n: comptime_int, s: State(n)) HashType {
 
 // TODO: Check if inlining and branch hints actually do anything
 pub inline fn hash_update_after_stack_change(n: comptime_int, stack_height: usize, colors: u8, amount: u4, index: BitBoardIndex(n)) u64 {
+    std.debug.assert(amount >= 1);
     std.debug.assert(amount <= 8);
     var hash: u64 = 0;
     if (stack_height < optimized_stack_max_height) {
@@ -138,7 +134,7 @@ pub inline fn hash_update_after_stack_change(n: comptime_int, stack_height: usiz
         @branchHint(.unlikely);
         var iter = colors;
         for (0..amount) |h| {
-            const height = stack_height + amount - h;
+            const height = stack_height + amount - 1 - h;
             const piece_color = iter & 1;
             iter >>= 1;
             hash ^= stack_color[piece_color][height][index];

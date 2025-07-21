@@ -33,6 +33,7 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
     const occupied = state.road; // opening only has flats
     std.debug.assert(@popCount(occupied) <= 1);
     reserves.*.flats -= 1;
+    state.hash ^= zobrist.player_black;
     for (0..n * n) |i| {
         const bit = @as(BitBoard(n), 1) << @truncate(i);
         if (occupied & bit != 0) continue;
@@ -53,6 +54,7 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
     }
     reserves.*.flats += 1;
     state.player.advance();
+    state.hash ^= zobrist.player_black;
     std.debug.assert(std.meta.eql(before, state.*));
     return positions;
 }
@@ -61,6 +63,7 @@ fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8) u64 {
     std.debug.assert(!state.opening());
     var positions: u64 = 0;
     state.player.advance();
+    state.hash ^= zobrist.player_black;
     const before = state.*; // TODO: remove this after debugging
     positions += flatPlacements(n, state, depth);
     std.debug.assert(std.meta.eql(before, state.*));
@@ -71,6 +74,7 @@ fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8) u64 {
     positions += smashSpreads(n, state, depth);
     std.debug.assert(std.meta.eql(before, state.*));
     state.player.advance(); // unswap color
+    state.hash ^= zobrist.player_black;
     return positions;
 }
 
@@ -410,7 +414,7 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 std.debug.assert(@popCount(state.noble & final_bit) == 1);
                 std.debug.assert(@popCount(~state.road & final_bit) == 1);
                 const final_stack = &state.stacks[moved_index];
-                state.hash ^= zobrist.hash_update_after_stack_change(n, final_stack.size(), rest, final_drop, moved_index);
+                state.hash ^= zobrist.stack_color[@intFromEnum(color)][final_stack.size()][moved_index];
                 state.hash ^= zobrist.wall[moved_index] ^ zobrist.capstone[moved_index]; // was wall, now is capstone
                 final_stack.add(final_drop, rest);
                 my_pieces.* |= final_bit;
