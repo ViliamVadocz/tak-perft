@@ -142,12 +142,3 @@ pub inline fn hash_update_after_stack_change(n: comptime_int, stack_height: usiz
     }
     return hash;
 }
-
-test "zobrist" {
-    const tps = @import("tps.zig");
-    const s = try tps.parse(8, "x,2,2,x,1,x2,1/x,2,2,1,1,2,x,1/1,1S,2,1,12,x,222221S,1/x,1,2C,222221C,1,12S,1,1/1,1,221C,11112C,1,1,1,1/2,21S,2,2,2,2,2S,1/1,2221C,21112C,2,2,2,21,2222221S/2,2221S,2,12,2,1,21,2 1 76");
-    const hash = getHash(8, s);
-    std.debug.print("\nhash: {d}\n", .{hash});
-    std.debug.print("stack_color: {d} bytes\n", .{@sizeOf(@TypeOf(stack_color))});
-    std.debug.print("stack_change: {d} bytes\n", .{@sizeOf(@TypeOf(stack_change.*))});
-}
