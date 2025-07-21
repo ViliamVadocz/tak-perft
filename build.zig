@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
 
     // tak_perft binary
     const tak_perft = b.addExecutable(.{
-        .name = "tak_preft",
+        .name = "tak-perft",
         .root_module = main_module,
     });
     b.installArtifact(tak_perft);
@@ -47,6 +47,7 @@ pub fn build(b: *std.Build) void {
         .root_module = main_module,
         .filter = test_filter,
     });
+    b.installArtifact(unit_tests);
     const run_unit_tests = b.addRunArtifact(unit_tests);
     run_unit_tests.step.dependOn(install_step);
     const test_step = b.step("test", "Run unit tests");
