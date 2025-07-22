@@ -47,7 +47,7 @@ pub fn build(b: *std.Build) void {
         .root_module = main_module,
         .filter = test_filter,
     });
-    b.installArtifact(unit_tests);
+    // b.installArtifact(unit_tests);
     const run_unit_tests = b.addRunArtifact(unit_tests);
     run_unit_tests.step.dependOn(install_step);
     const test_step = b.step("test", "Run unit tests");

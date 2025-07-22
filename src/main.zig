@@ -7,6 +7,7 @@ const clap = @import("clap");
 const perft = @import("perft.zig");
 const state = @import("state.zig");
 const tps = @import("tps.zig");
+const Table = @import("table.zig").Table;
 
 comptime { // for tests
     _ = @import("bench.zig");
@@ -17,6 +18,7 @@ comptime { // for tests
     _ = @import("reserves.zig");
     _ = @import("stack.zig");
     _ = @import("state.zig");
+    _ = @import("table.zig");
     _ = @import("tps.zig");
     _ = @import("zobrist.zig");
 }
@@ -55,6 +57,9 @@ pub fn main() !void {
     };
     const tps_str = res.args.tps orelse "x6/x6/x6/x6/x6/x6 1 1";
 
+    const tt = try allocator.create(Table);
+    defer allocator.destroy(tt);
+
     const n = tps.determineSize(tps_str) orelse {
         return stderr.print(
             \\Could not determine a valid size from the TPS.
@@ -63,17 +68,17 @@ pub fn main() !void {
         , .{ state.min_n, state.max_n });
     };
     return switch (n) {
-        3 => genericMain(3, tps_str, depth),
-        4 => genericMain(4, tps_str, depth),
-        5 => genericMain(5, tps_str, depth),
-        6 => genericMain(6, tps_str, depth),
-        7 => genericMain(7, tps_str, depth),
-        8 => genericMain(8, tps_str, depth),
+        3 => genericMain(3, tps_str, depth, tt),
+        4 => genericMain(4, tps_str, depth, tt),
+        5 => genericMain(5, tps_str, depth, tt),
+        6 => genericMain(6, tps_str, depth, tt),
+        7 => genericMain(7, tps_str, depth, tt),
+        8 => genericMain(8, tps_str, depth, tt),
         else => unreachable,
     };
 }
 
-fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8) !void {
+fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, tt: *Table) !void {
     var game = tps.parse(n, tps_str) catch |err| {
         return stderr.print(
             \\Unable to parse TPS "{s}".
@@ -81,6 +86,7 @@ fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8) !void {
             \\
         , .{ tps_str, err });
     };
-    const positions = perft.countPositions(n, &game, depth);
+
+    const positions = perft.countPositions(n, &game, depth, tt);
     return stdout.print("{d}\n", .{positions});
 }

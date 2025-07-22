@@ -11,17 +11,24 @@ const tps = @import("tps.zig");
 const Reserves = @import("reserves.zig").Reserves;
 const Stack = @import("stack.zig").Stack;
 const zobrist = @import("zobrist.zig");
+const table = @import("table.zig");
+const Table = table.Table;
 
-pub fn countPositions(n: comptime_int, state: *State(n), depth: u8) u64 {
+pub fn countPositions(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     state.checkInvariants();
     if (depth == 0) return 1;
     if (state.terminal()) return 0;
     if (depth == 1) return countMoves(n, state);
-    if (state.opening()) return opening(n, state, depth - 1);
-    return countPositionsRec(n, state, depth - 1);
+    if (table.get(tt, state.hash, depth)) |positions| return positions;
+    const positions = if (state.opening())
+        opening(n, state, depth - 1, tt)
+    else
+        countPositionsRec(n, state, depth - 1, tt);
+    table.save(tt, state.hash, positions, depth);
+    return positions;
 }
 
-pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
+pub fn opening(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     std.debug.assert(state.opening());
     var positions: u64 = 0;
     const before = state.*; // TODO: remove this after debugging
@@ -43,7 +50,7 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
         pieces.* |= bit;
         state.road |= bit;
         state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
-        positions += countPositions(n, state, depth);
+        positions += countPositions(n, state, depth, tt);
         _ = stack.take(1);
         std.debug.assert(stack.size() == 0);
         pieces.* ^= bit;
@@ -59,26 +66,26 @@ pub fn opening(n: comptime_int, state: *State(n), depth: u8) u64 {
     return positions;
 }
 
-fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8) u64 {
+fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     std.debug.assert(!state.opening());
     var positions: u64 = 0;
     state.player.advance();
     state.hash ^= zobrist.player_black;
     const before = state.*; // TODO: remove this after debugging
-    positions += flatPlacements(n, state, depth);
+    positions += flatPlacements(n, state, depth, tt);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += capPlacements(n, state, depth);
+    positions += capPlacements(n, state, depth, tt);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += nonSmashSpreads(n, state, depth);
+    positions += nonSmashSpreads(n, state, depth, tt);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += smashSpreads(n, state, depth);
+    positions += smashSpreads(n, state, depth, tt);
     std.debug.assert(std.meta.eql(before, state.*));
     state.player.advance(); // unswap color
     state.hash ^= zobrist.player_black;
     return positions;
 }
 
-fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
+fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     var positions: u64 = 0;
     const reserves = state.reserves_mut().@"1";
     if (reserves.flats == 0) return 0;
@@ -98,13 +105,13 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
         // flat
         state.road |= bit;
-        positions += countPositions(n, state, depth);
+        positions += countPositions(n, state, depth, tt);
         state.road ^= bit;
         std.debug.assert(state.road & bit == 0);
         // wall
         state.noble |= bit;
         state.hash ^= zobrist.wall[i];
-        positions += countPositions(n, state, depth);
+        positions += countPositions(n, state, depth, tt);
         state.noble ^= bit;
         std.debug.assert(state.noble & bit == 0);
         _ = stack.take(1);
@@ -118,7 +125,7 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
     return positions;
 }
 
-fn capPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
+fn capPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     var positions: u64 = 0;
     const reserves = state.reserves_mut().@"1";
     if (reserves.caps == 0) return 0;
@@ -140,7 +147,7 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
         // cap
         state.road |= bit;
         state.noble |= bit;
-        positions += countPositions(n, state, depth);
+        positions += countPositions(n, state, depth, tt);
         state.road ^= bit;
         std.debug.assert(state.road & bit == 0);
         state.noble ^= bit;
@@ -155,7 +162,7 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8) u64 {
     return positions;
 }
 
-fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
+fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     var positions: u64 = 0;
     const opp_pieces, const my_pieces = state.pieces_mut();
     const color = state.player.next();
@@ -283,7 +290,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 } else {
                     state.road &= ~final_bit;
                 }
-                positions += countPositions(n, state, depth);
+                positions += countPositions(n, state, depth, tt);
 
                 // unmake
                 state.white = white_before_spread;
@@ -306,7 +313,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
     return positions;
 }
 
-fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
+fn smashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table) u64 {
     var positions: u64 = 0;
     const opp_pieces, const my_pieces = state.pieces_mut();
     const color = state.player.next();
@@ -423,7 +430,7 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8) u64 {
                 state.road ^= final_bit;
                 std.debug.assert(@popCount(state.road & final_bit) == 1);
 
-                positions += countPositions(n, state, depth);
+                positions += countPositions(n, state, depth, tt);
 
                 // unmake
                 state.white = white_before_spread;
@@ -628,18 +635,26 @@ test "countMoves equal to countPositionsRec" {
         .{ 8, "2,2,212,2,22221C,2,2,1/2,2,2,21S,22,111212C,2,21/12,x,12,2,1S,2,2,21/12,122,2221S,21S,x,2,1,1/211112S,1S,2,2,x,1C,1,x/x,12,21S,2,1,1,x2/1S,12,x,2,1112112C,x3/x2,12,1112,1,1,1,1 2 79" },
     };
     inline for (positions) |p| {
+        const allocator = std.testing.allocator;
+        const tt = try allocator.create(Table);
+        defer allocator.destroy(tt);
+
         const n = p.@"0";
         const tps_string = p.@"1";
         var state = try tps.parse(n, tps_string);
-        try std.testing.expectEqual(countMoves(n, &state), countPositionsRec(n, &state, 0));
+        try std.testing.expectEqual(countMoves(n, &state), countPositionsRec(n, &state, 0, tt));
     }
 }
 
 fn testPerft(n: comptime_int, tps_str: []const u8, results: []const u64) !void {
     var state = try tps.parse(n, tps_str);
     for (results, 0..) |r, depth| {
+        const allocator = std.testing.allocator;
+        const tt = try allocator.create(Table);
+        defer allocator.destroy(tt);
+
         const before = state;
-        const positions = countPositions(n, &state, @truncate(depth));
+        const positions = countPositions(n, &state, @truncate(depth), tt);
         try std.testing.expectEqual(before, state);
         try std.testing.expectEqual(r, positions);
     }
