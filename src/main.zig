@@ -7,7 +7,9 @@ const clap = @import("clap");
 const perft = @import("perft.zig");
 const state = @import("state.zig");
 const tps = @import("tps.zig");
-const Table = @import("table.zig").Table;
+const table = @import("table.zig");
+
+const Table = table.Table;
 
 comptime { // for tests
     _ = @import("bench.zig");
@@ -58,6 +60,7 @@ pub fn main() !void {
     const tps_str = res.args.tps orelse "x6/x6/x6/x6/x6/x6 1 1";
 
     const tt = try allocator.create(Table);
+    @memset(tt, table.init_bucket);
     defer allocator.destroy(tt);
 
     const n = tps.determineSize(tps_str) orelse {

@@ -4,7 +4,7 @@ const HashType = @import("zobrist.zig").HashType;
 pub const Entry = packed struct {
     positions: u64,
     depth: u8,
-    // We don't need the lower 8 bit since table size is power of two and at least 2^8 size.
+    // We don't need the lower 8 bits since table size is power of two and at least 2^8 size.
     // The index where we are mapped gives us at least the lower 8 bits.
     signature: std.meta.Int(.unsigned, @bitSizeOf(HashType) - 8),
 
@@ -13,9 +13,15 @@ pub const Entry = packed struct {
     }
 };
 
-pub const Bucket = [2]Entry;
+pub const Bucket = [bucket_size]Entry;
+// NOTE: depth 0 will always get replaced.
+// There is no valid way to get a depth 0 otherwise,
+// since perft(depth=0) returns 1 and never checks the table.
+pub const init_bucket = [_]Entry{.{ .positions = 0, .depth = 0, .signature = 0 }} ** bucket_size;
+pub const bucket_size = 2;
+
 pub const Table = [size]Bucket;
-pub const size = 1 << 22; // TODO: Experiment with different sizes
+pub const size = 1 << 28; // TODO: Experiment with different sizes
 comptime {
     if (@popCount(@as(u64, size)) != 1) @compileError("Transposition table size should be a power of two");
     if (size < 256) @compileError("The size should take at least 8 bits so that we can squish the signature and depth together");

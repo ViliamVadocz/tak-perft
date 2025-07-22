@@ -637,6 +637,7 @@ test "countMoves equal to countPositionsRec" {
     inline for (positions) |p| {
         const allocator = std.testing.allocator;
         const tt = try allocator.create(Table);
+        @memset(tt, table.init_bucket);
         defer allocator.destroy(tt);
 
         const n = p.@"0";
@@ -651,6 +652,7 @@ fn testPerft(n: comptime_int, tps_str: []const u8, results: []const u64) !void {
     for (results, 0..) |r, depth| {
         const allocator = std.testing.allocator;
         const tt = try allocator.create(Table);
+        @memset(tt, table.init_bucket);
         defer allocator.destroy(tt);
 
         const before = state;
