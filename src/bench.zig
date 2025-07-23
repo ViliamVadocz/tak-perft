@@ -6,21 +6,48 @@ const zbench = @import("zbench");
 const tps = @import("tps.zig");
 const perft = @import("perft.zig");
 const State = @import("state.zig").State;
+const table = @import("table.zig");
 
-fn benchPerft(n: comptime_int, depth: comptime_int, comptime tps_str: []const u8) zbench.BenchFunc {
+fn benchPerft(n: comptime_int, depth: comptime_int, comptime tps_str: []const u8, tt: *table.Table) zbench.BenchFunc {
     @setEvalBranchQuota(2_000);
     const state: State(n) = comptime tps.parse(n, tps_str) catch unreachable;
+    const static = struct {
+        var t: *table.Table = undefined;
+    };
+    static.t = tt;
     return struct {
         fn bench(_: std.mem.Allocator) void {
             var s = state;
-            _ = perft.countPositions(n, &s, depth);
+            _ = perft.countPositions(n, &s, depth, static.t);
         }
     }.bench;
 }
 
+fn zeroOutTT(tt: *table.Table) *const fn () void {
+    const static = struct {
+        var t: *table.Table = undefined;
+    };
+    static.t = tt;
+    return struct {
+        fn zero() void {
+            @memset(static.t, table.init_bucket);
+        }
+    }.zero;
+}
+
 pub fn main() !void {
-    var bench = zbench.Benchmark.init(std.heap.page_allocator, .{
-        .time_budget_ns = 1e10, // 10 seconds
+    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    defer _ = gpa.deinit(); // TODO: Maybe check for leaks?
+    const allocator = gpa.allocator();
+
+    const tt = try allocator.create(table.Table);
+    // NOTE: Will be zeroed out before every benchmark.
+    defer allocator.destroy(tt);
+
+    var bench = zbench.Benchmark.init(allocator, .{
+        .time_budget_ns = 10e9,
+        .iterations = 100,
+        .hooks = .{ .before_each = zeroOutTT(tt) },
     });
     defer bench.deinit();
 
@@ -59,7 +86,7 @@ pub fn main() !void {
         std.debug.assert(position.max_depth >= 1);
         inline for (1..(position.max_depth + 1)) |depth| {
             const name = position.name ++ ", depth " ++ [1]u8{'0' + depth};
-            try bench.add(name, benchPerft(position.n, depth, position.tps_str), .{});
+            try bench.add(name, benchPerft(position.n, depth, position.tps_str, tt), .{});
         }
     }
 
