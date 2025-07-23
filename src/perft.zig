@@ -25,6 +25,7 @@ pub fn countPositions(n: comptime_int, state: *State(n), depth: u8, tt: *Table) 
     else
         countPositionsRec(n, state, depth - 1, tt);
     table.save(tt, state.hash, positions, depth);
+    std.debug.assert(table.get(tt, state.hash, depth) == positions);
     return positions;
 }
 
