@@ -46,7 +46,7 @@ pub fn main() !void {
 
     var bench = zbench.Benchmark.init(allocator, .{
         .time_budget_ns = 10e9,
-        .iterations = 100,
+        .max_iterations = 100,
         .hooks = .{ .before_each = zeroOutTT(tt) },
     });
     defer bench.deinit();

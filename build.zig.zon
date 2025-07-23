@@ -41,8 +41,8 @@
             .hash = "clap-0.10.0-oBajB7jkAQAZ4cKLlzkeV9mDu2yGZvtN2QuOyfAfjBij",
         },
         .zbench = .{
-            .url = "git+https://github.com/hendriknielaender/zbench#c64bb43a3e32c5c62c02058ad7247e072301708d",
-            .hash = "zbench-0.10.0-YTdc714iAQDO4lTHMnIljYHPZ5v_sNTsw75vAmO1pyT-",
+            .url = "git+https://github.com/ViliamVadocz/zBench#be8d79d2d13c1af9acd47ecccf567e45f68b2333",
+            .hash = "zbench-0.10.0-YTdc71wiAQDiNASkvn8vhKWmw6zkp35nLoxRkLamHlAc",
         },
     },
     .paths = .{
