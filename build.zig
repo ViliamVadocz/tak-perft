@@ -23,9 +23,9 @@ pub fn build(b: *std.Build) void {
         .optimize = .Debug,
     });
     const zobrist_step = b.addRunArtifact(zobrist);
-    const output = zobrist_step.addOutputFileArg("zobrist.bin");
+    const zobrist_output = zobrist_step.addOutputFileArg("zobrist.bin");
     main_module.addAnonymousImport("zobrist_stack_change", .{
-        .root_source_file = output,
+        .root_source_file = zobrist_output,
     });
 
     // tak_perft binary
@@ -59,6 +59,9 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/bench.zig"),
         .target = b.graph.host,
         .optimize = .ReleaseFast,
+    });
+    benchmark.root_module.addAnonymousImport("zobrist_stack_change", .{
+        .root_source_file = zobrist_output,
     });
     // zbench dependency
     const zbench = b.dependency("zbench", .{ .target = b.graph.host, .optimize = .ReleaseFast }).module("zbench");
