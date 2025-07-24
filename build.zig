@@ -14,6 +14,12 @@ pub fn build(b: *std.Build) void {
     });
     const clap = b.dependency("clap", opts).module("clap");
     main_module.addImport("clap", clap);
+    // for visualizing zobrist hash
+    const zigimg = b.dependency("zigimg", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    main_module.addImport("zigimg", zigimg.module("zigimg"));
 
     // create Zobirst LUT
     const zobrist = b.addExecutable(.{

@@ -38,7 +38,7 @@ pub fn State(n: comptime_int) type {
         white_reserves: Reserves(n) = .{},
         black_reserves: Reserves(n) = .{},
 
-        hash: HashType = 0,
+        hash: HashType = zobrist.board_size[n],
 
         pub fn init() State(n) {
             return .{};

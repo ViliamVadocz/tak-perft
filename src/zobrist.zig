@@ -11,10 +11,21 @@ const max_amount = state.max_n; // most that can be picked up from a stack
 const max_board_size = state.max_n * state.max_n;
 const max_height = 101; // refer to calculation in stack.zig
 
-pub const player_black = 5948797944002618758; // TODO: Experiment
+pub const player_black = 6495651153056663299;
+pub const board_size = blk: {
+    const seed = 2881037382449916300;
+    var prng = std.Random.DefaultPrng.init(seed);
+    const rand = prng.random();
+
+    var lut: [state.max_n + 1]HashType = undefined;
+    for (0..state.max_n + 1) |i| {
+        lut[i] = rand.int(HashType);
+    }
+    break :blk lut;
+};
 pub const capstone = blk: {
     @setEvalBranchQuota(2_000);
-    const seed = 9622543866434868678; // TODO: Experiment with seeds
+    const seed = 2606308307429280036;
     var prng = std.Random.DefaultPrng.init(seed);
     const rand = prng.random();
 
@@ -26,7 +37,7 @@ pub const capstone = blk: {
 };
 pub const wall = blk: {
     @setEvalBranchQuota(2_000);
-    const seed = 15536116614583780634; // TODO: Experiment with seeds
+    const seed = 1192281107749480936;
     var prng = std.Random.DefaultPrng.init(seed);
     const rand = prng.random();
 
@@ -38,7 +49,7 @@ pub const wall = blk: {
 };
 pub const stack_color = blk: {
     @setEvalBranchQuota(1_000_000);
-    const seed = 3911426766083215428; // TODO: Experiment with seeds
+    const seed = 8245038159172460403;
     var prng = std.Random.DefaultPrng.init(seed);
     const rand = prng.random();
 
@@ -95,6 +106,7 @@ fn makeStackChange() StackChangeType {
 pub fn getHash(n: comptime_int, s: State(n)) HashType {
     state.assertSize(n);
     var hash: u64 = if (s.player == Color.Black) player_black else 0;
+    hash ^= board_size[n];
     const caps = s.noble & s.road;
     const walls = s.noble & ~s.road;
     for (0..n * n) |i| {
@@ -141,4 +153,66 @@ pub inline fn hash_update_after_stack_change(n: comptime_int, stack_height: usiz
         }
     }
     return hash;
+}
+
+const tps = @import("tps.zig");
+fn genericHash(n: comptime_int, tps_string: []const u8) !HashType {
+    return getHash(n, try tps.parse(n, tps_string));
+}
+
+test "statistical" {
+    const allocator = std.testing.allocator;
+
+    const size_sqrt = 1 << 10;
+    const size = size_sqrt * size_sqrt;
+    var hash_set = try allocator.create([size]u8);
+    defer allocator.destroy(hash_set);
+    @memset(hash_set, 0);
+    var pixels = try allocator.create([size]u8);
+    defer allocator.destroy(pixels);
+
+    const file = try std.fs.cwd().openFile("positions.tps", .{});
+    defer file.close();
+
+    var total_collisions: u64 = 0;
+    var most_hits: u8 = 0;
+
+    const reader = file.reader();
+    var buffer: [640]u8 = @splat(0);
+    var lines: u64 = 0;
+    while (try reader.readUntilDelimiterOrEof(&buffer, '\n')) |line| : (@memset(&buffer, 0)) {
+        const n = tps.determineSize(line) orelse unreachable;
+        const hash = try switch (n) {
+            3 => genericHash(3, line),
+            4 => genericHash(4, line),
+            5 => genericHash(5, line),
+            6 => genericHash(6, line),
+            7 => genericHash(7, line),
+            8 => genericHash(8, line),
+            else => unreachable,
+        };
+
+        const index = hash % size;
+        // std.debug.print("\n{b:0>64} <- {s}", .{ hash, line });
+        if (hash_set[index] > 0) total_collisions += 1;
+        hash_set[index] +|= 1;
+        if (hash_set[index] > most_hits) most_hits = hash_set[index];
+
+        lines += 1;
+        if (lines >= 1_000_000) break;
+    }
+
+    var hit_distr: [16]u64 = @splat(0);
+    for (0..size) |i| {
+        const hits = @as(u64, hash_set[i]);
+        if (hits < 8) hit_distr[hits] += 1;
+        pixels[i] = @intCast(255 * hits / most_hits);
+    }
+
+    std.debug.print("\ntotal_collisions: {d}\nmost_hits: {d}\nhit_distr: {d}", .{ total_collisions, most_hits, hit_distr });
+
+    const zigimg = @import("zigimg");
+    var image = try zigimg.Image.fromRawPixels(allocator, size_sqrt, size_sqrt, pixels[0..], .grayscale8);
+    defer image.deinit();
+    try image.writeToFilePath("zobrist.png", .{ .png = .{} });
 }
