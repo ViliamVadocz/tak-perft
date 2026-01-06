@@ -21,22 +21,24 @@ const Piece = action.Piece;
 const Dir = action.Direction;
 const Square = action.Square;
 
-pub fn countPositions(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+const Options = @import("main.zig").Options;
+
+pub fn countPositions(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     state.checkInvariants();
     if (depth == 0) return 1;
-    if (state.terminal()) return 0;
-    if (depth == 1 and !split) return countMoves(n, state);
+    if (!options.skip_end_checks and state.terminal()) return 0;
+    if (!options.split and depth == 1) return countMoves(n, state);
     if (table.get(tt, state.hash, depth)) |positions| return positions;
     const positions = if (state.opening())
-        opening(n, state, depth - 1, tt, split)
+        opening(n, state, depth - 1, tt, options)
     else
-        countPositionsRec(n, state, depth - 1, tt, split);
+        countPositionsRec(n, state, depth - 1, tt, options);
     table.save(tt, state.hash, positions, depth);
     std.debug.assert(table.get(tt, state.hash, depth) == positions);
     return positions;
 }
 
-fn opening(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn opening(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     std.debug.assert(state.opening());
     var positions: u64 = 0;
     const before = state.*; // TODO: remove this after debugging
@@ -58,8 +60,8 @@ fn opening(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool
         pieces.* |= bit;
         state.road |= bit;
         state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
-        const current_positions = countPositions(n, state, depth, tt, false);
-        if (split) {
+        const current_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+        if (options.split) {
             const ptn = action.toPTN(Action{
                 .pattern = action.placement_pattern,
                 .square = action.bitToSquare(n, i),
@@ -83,26 +85,26 @@ fn opening(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool
     return positions;
 }
 
-fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn countPositionsRec(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     std.debug.assert(!state.opening());
     var positions: u64 = 0;
     state.player.advance();
     state.hash ^= zobrist.player_black;
     const before = state.*; // TODO: remove this after debugging
-    positions += flatPlacements(n, state, depth, tt, split);
+    positions += flatPlacements(n, state, depth, tt, options);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += capPlacements(n, state, depth, tt, split);
+    positions += capPlacements(n, state, depth, tt, options);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += nonSmashSpreads(n, state, depth, tt, split);
+    positions += nonSmashSpreads(n, state, depth, tt, options);
     std.debug.assert(std.meta.eql(before, state.*));
-    positions += smashSpreads(n, state, depth, tt, split);
+    positions += smashSpreads(n, state, depth, tt, options);
     std.debug.assert(std.meta.eql(before, state.*));
     state.player.advance(); // unswap color
     state.hash ^= zobrist.player_black;
     return positions;
 }
 
-fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     var positions: u64 = 0;
     const reserves = state.reserves_mut().@"1";
     if (reserves.flats == 0) return 0;
@@ -122,8 +124,8 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, spli
         state.hash ^= zobrist.stack_color[@intFromEnum(color)][0][i];
         // flat
         state.road |= bit;
-        const flat_positions = countPositions(n, state, depth, tt, false);
-        if (split) {
+        const flat_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+        if (options.split) {
             const ptn = action.toPTN(Action{
                 .pattern = action.placement_pattern,
                 .square = action.bitToSquare(n, i),
@@ -137,8 +139,8 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, spli
         // wall
         state.noble |= bit;
         state.hash ^= zobrist.wall[i];
-        const wall_positions = countPositions(n, state, depth, tt, false);
-        if (split) {
+        const wall_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+        if (options.split) {
             const ptn = action.toPTN(Action{
                 .pattern = action.placement_pattern,
                 .square = action.bitToSquare(n, i),
@@ -160,7 +162,7 @@ fn flatPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, spli
     return positions;
 }
 
-fn capPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn capPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     var positions: u64 = 0;
     const reserves = state.reserves_mut().@"1";
     if (reserves.caps == 0) return 0;
@@ -182,8 +184,8 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split
         // cap
         state.road |= bit;
         state.noble |= bit;
-        const current_positions = countPositions(n, state, depth, tt, false);
-        if (split) {
+        const current_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+        if (options.split) {
             const ptn = action.toPTN(Action{
                 .pattern = action.placement_pattern,
                 .square = action.bitToSquare(n, i),
@@ -206,7 +208,7 @@ fn capPlacements(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split
     return positions;
 }
 
-fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     var positions: u64 = 0;
     const opp_pieces, const my_pieces = state.pieces_mut();
     const color = state.player.next();
@@ -334,8 +336,8 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, spl
                 } else {
                     state.road &= ~final_bit;
                 }
-                const current_positions = countPositions(n, state, depth, tt, false);
-                if (split) {
+                const current_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+                if (options.split) {
                     const ptn = action.toPTN(Action{
                         .pattern = @intCast(pattern << @intCast(8 - @as(u4, hand))),
                         .square = action.bitToSquare(n, i),
@@ -366,7 +368,7 @@ fn nonSmashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, spl
     return positions;
 }
 
-fn smashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split: bool) u64 {
+fn smashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, options: Options) u64 {
     var positions: u64 = 0;
     const opp_pieces, const my_pieces = state.pieces_mut();
     const color = state.player.next();
@@ -483,8 +485,8 @@ fn smashSpreads(n: comptime_int, state: *State(n), depth: u8, tt: *Table, split:
                 state.road ^= final_bit;
                 std.debug.assert(@popCount(state.road & final_bit) == 1);
 
-                const current_positions = countPositions(n, state, depth, tt, false);
-                if (split) {
+                const current_positions = countPositions(n, state, depth, tt, .{ .skip_end_checks = options.skip_end_checks });
+                if (options.split) {
                     const ptn = action.toPTN(Action{
                         .pattern = @intCast(pattern << @intCast(8 - @as(u4, hand))),
                         .square = action.bitToSquare(n, i),
@@ -706,7 +708,7 @@ test "countMoves equal to countPositionsRec" {
         const n = p.@"0";
         const tps_string = p.@"1";
         var state = try tps.parse(n, tps_string);
-        try std.testing.expectEqual(countMoves(n, &state), countPositionsRec(n, &state, 0, tt, false));
+        try std.testing.expectEqual(countMoves(n, &state), countPositionsRec(n, &state, 0, tt, .{}));
     }
 }
 
@@ -719,7 +721,7 @@ fn testPerft(n: comptime_int, tps_str: []const u8, results: []const u64) !void {
         defer allocator.destroy(tt);
 
         const before = state;
-        const positions = countPositions(n, &state, @truncate(depth), tt, false);
+        const positions = countPositions(n, &state, @truncate(depth), tt, .{});
         try std.testing.expectEqual(before, state);
         try std.testing.expectEqual(r, positions);
     }

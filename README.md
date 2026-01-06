@@ -33,10 +33,11 @@ $ tak-perft 6 --tps "x5/x5/2S,211C,2C,212S,x/x5/x5 1 7"
 28289067995
 $ tak-perft --help
 === Tak Perft ===
-  -h, --help       Display this message and exit.
-  -t, --tps <str>  Optional position given as TPS.
-  -s, --split      Print positions per action.
-  <u8>             Specify the depth to search.
+  -h, --help         Display this message and exit.
+  <u8>               Specify the depth to search.
+  -t, --tps <str>    Optional position given as TPS.
+  -s, --split        Print positions per action.
+  --skip-end-checks  Generate actions even in terminal states.
 $ tak-perft --tps "2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,111222111C,x,2S,1S,2S/2S,1S,2S,x,222111222C,1S,2
 S,1S/1S,2S,1S,2S,1S,2S,1S,2S/2S,1S,2S,1S,2S,1S,2S,1S/1S,2S,1S,2S,1S,2S,1S,2S 2 40" 6 --split
 e5       : 2304218
@@ -82,6 +83,8 @@ e4-*     : 9582631
 3e4+21*  : 6919726
 2e4+11*  : 6232986
 131138098
+$ tak-perft 4 --tps "x6/x6/x6/x3,111222111222111222111222111222111222111222111222111222111222C,x2/x6/x6 2 31" --skip-end-checks
+160643820
 ```
 
 ## TPS Parsing
@@ -92,4 +95,3 @@ is also unnecessary since we determine whether it is the opening
 based on the number of played stones.
 
 The program only supports sizes 3 to 8 (inclusive).
-

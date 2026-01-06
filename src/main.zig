@@ -27,11 +27,17 @@ comptime { // for tests
 }
 
 const params = clap.parseParamsComptime(
-    \\-h, --help        Display this message and exit.
-    \\-t, --tps <str>   Optional position given as TPS.
-    \\-s, --split       Print positions per action.
-    \\<u8>              Specify the depth to search.
+    \\-h, --help         Display this message and exit.
+    \\<u8>               Specify the depth to search.
+    \\-t, --tps <str>    Optional position given as TPS.
+    \\-s, --split        Print positions per action.
+    \\--skip-end-checks  Generate actions even in terminal states.
 );
+
+pub const Options = struct {
+    split: bool = false,
+    skip_end_checks: bool = false,
+};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
@@ -56,7 +62,10 @@ pub fn main() !void {
             .description_indent = 0,
         });
     }
-    const split = res.args.split != 0;
+    const options = Options{
+        .split = res.args.split != 0,
+        .skip_end_checks = res.args.@"skip-end-checks" != 0,
+    };
     const depth = res.positionals[0] orelse {
         return stderr.print("You must specify the depth (as a positional argument).\n", .{});
     };
@@ -74,17 +83,17 @@ pub fn main() !void {
     defer allocator.destroy(tt);
 
     return switch (n) {
-        3 => genericMain(3, tps_str, depth, split, tt),
-        4 => genericMain(4, tps_str, depth, split, tt),
-        5 => genericMain(5, tps_str, depth, split, tt),
-        6 => genericMain(6, tps_str, depth, split, tt),
-        7 => genericMain(7, tps_str, depth, split, tt),
-        8 => genericMain(8, tps_str, depth, split, tt),
+        3 => genericMain(3, tps_str, depth, tt, options),
+        4 => genericMain(4, tps_str, depth, tt, options),
+        5 => genericMain(5, tps_str, depth, tt, options),
+        6 => genericMain(6, tps_str, depth, tt, options),
+        7 => genericMain(7, tps_str, depth, tt, options),
+        8 => genericMain(8, tps_str, depth, tt, options),
         else => unreachable,
     };
 }
 
-fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, split: bool, tt: *Table) !void {
+fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, tt: *Table, options: Options) !void {
     var game = tps.parse(n, tps_str) catch |err| {
         return stderr.print(
             \\Unable to parse TPS "{s}".
@@ -93,6 +102,6 @@ fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, split: bool, tt:
         , .{ tps_str, err });
     };
 
-    const positions = perft.countPositions(n, &game, depth, tt, split);
+    const positions = perft.countPositions(n, &game, depth, tt, options);
     return stdout.print("{d}\n", .{positions});
 }
