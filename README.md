@@ -12,7 +12,7 @@ I made this to learn Zig and to practice low-level optimizations.
 
 1. Install Zig
 2. Run `zig build --release=fast`
-3. Enjoy the binary at `./zig-out/bin/tak_perft`
+3. Enjoy the binary at `./zig-out/bin/tak-perft`
 
 ## Usage
 
