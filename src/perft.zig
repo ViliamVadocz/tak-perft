@@ -520,7 +520,8 @@ fn countMoves(n: comptime_int, state: *const State(n)) u64 {
     const empty: u64 = n * n - @popCount(state.white | state.black);
     if (state.opening()) return empty;
     const reserves = state.reserves().@"0";
-    const placements = if (reserves.flats > 0) (if (reserves.caps > 0) 3 * empty else 2 * empty) else empty;
+    const piece_types = 2 * @as(u64, @intFromBool(reserves.flats > 0)) + @as(u64, @intFromBool(reserves.caps > 0));
+    const placements = piece_types * empty;
 
     const mine = state.pieces().@"0";
     const caps = state.noble & state.road;
