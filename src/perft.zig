@@ -18,8 +18,6 @@ const stdout = std.io.getStdOut().writer();
 const action = @import("action.zig");
 const Action = action.Action;
 const Piece = action.Piece;
-const Dir = action.Direction;
-const Square = action.Square;
 
 const Options = @import("main.zig").Options;
 
