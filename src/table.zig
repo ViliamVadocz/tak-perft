@@ -32,7 +32,7 @@ pub const init_bucket = [_]Entry{.{ .positions = 0, .signature_and_depth = 0 }} 
 pub const bucket_size = 2;
 
 pub const Table = [size]Bucket;
-pub const size = 1 << 28; // TODO: Experiment with different sizes
+pub const size = 1 << 24; // TODO: Experiment with different sizes, make it configurable
 comptime {
     if (@popCount(@as(u64, size)) != 1) @compileError("Transposition table size should be a power of two");
     if (size < 256) @compileError("The size should take at least 8 bits so that we can squish the signature and depth together");
