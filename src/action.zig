@@ -26,10 +26,9 @@ pub const Piece = enum(u2) {
 
 pub fn bitToSquare(n: comptime_int, i: usize) Square {
     std.debug.assert(i < 64);
-    // FIXME: This is flipped because the TPS parsing flips the board
-    const flipped_i = n * n - i;
-    const rank: u3 = @intCast(flipped_i / n);
-    const file: u3 = @intCast(n - (flipped_i % n));
+    // FIXME: This is weird because the TPS parsing flips the board?
+    const rank: u3 = @intCast(n - 1 - (i / n));
+    const file: u3 = @intCast(i % n);
     return Square{
         .rank = rank,
         .file = file,
