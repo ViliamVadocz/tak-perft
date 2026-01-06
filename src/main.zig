@@ -12,6 +12,7 @@ const table = @import("table.zig");
 const Table = table.Table;
 
 comptime { // for tests
+    _ = @import("action.zig");
     _ = @import("bench.zig");
     _ = @import("bitboard.zig");
     _ = @import("color.zig");
@@ -28,6 +29,7 @@ comptime { // for tests
 const params = clap.parseParamsComptime(
     \\-h, --help        Display this message and exit.
     \\-t, --tps <str>   Optional position given as TPS.
+    \\-s, --split       Print positions per action.
     \\<u8>              Specify the depth to search.
 );
 
@@ -54,15 +56,11 @@ pub fn main() !void {
             .description_indent = 0,
         });
     }
+    const split = res.args.split != 0;
     const depth = res.positionals[0] orelse {
         return stderr.print("You must specify the depth (as a positional argument).\n", .{});
     };
     const tps_str = res.args.tps orelse "x6/x6/x6/x6/x6/x6 1 1";
-
-    const tt = try allocator.create(Table);
-    @memset(tt, table.init_bucket);
-    defer allocator.destroy(tt);
-
     const n = tps.determineSize(tps_str) orelse {
         return stderr.print(
             \\Could not determine a valid size from the TPS.
@@ -70,18 +68,23 @@ pub fn main() !void {
             \\
         , .{ state.min_n, state.max_n });
     };
+
+    const tt = try allocator.create(Table);
+    @memset(tt, table.init_bucket);
+    defer allocator.destroy(tt);
+
     return switch (n) {
-        3 => genericMain(3, tps_str, depth, tt),
-        4 => genericMain(4, tps_str, depth, tt),
-        5 => genericMain(5, tps_str, depth, tt),
-        6 => genericMain(6, tps_str, depth, tt),
-        7 => genericMain(7, tps_str, depth, tt),
-        8 => genericMain(8, tps_str, depth, tt),
+        3 => genericMain(3, tps_str, depth, split, tt),
+        4 => genericMain(4, tps_str, depth, split, tt),
+        5 => genericMain(5, tps_str, depth, split, tt),
+        6 => genericMain(6, tps_str, depth, split, tt),
+        7 => genericMain(7, tps_str, depth, split, tt),
+        8 => genericMain(8, tps_str, depth, split, tt),
         else => unreachable,
     };
 }
 
-fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, tt: *Table) !void {
+fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, split: bool, tt: *Table) !void {
     var game = tps.parse(n, tps_str) catch |err| {
         return stderr.print(
             \\Unable to parse TPS "{s}".
@@ -90,6 +93,6 @@ fn genericMain(n: comptime_int, tps_str: []const u8, depth: u8, tt: *Table) !voi
         , .{ tps_str, err });
     };
 
-    const positions = perft.countPositions(n, &game, depth, tt);
+    const positions = perft.countPositions(n, &game, depth, tt, split);
     return stdout.print("{d}\n", .{positions});
 }

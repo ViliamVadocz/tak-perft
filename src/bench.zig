@@ -18,7 +18,7 @@ fn benchPerft(n: comptime_int, depth: comptime_int, comptime tps_str: []const u8
     return struct {
         fn bench(_: std.mem.Allocator) void {
             var s = state;
-            _ = perft.countPositions(n, &s, depth, static.t);
+            _ = perft.countPositions(n, &s, depth, static.t, false) catch unreachable;
         }
     }.bench;
 }

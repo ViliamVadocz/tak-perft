@@ -73,7 +73,12 @@ test colBoardAt {
     try std.testing.expectEqual(0x20_20_20_20_20_20_20_20, colBoardAt(8, 5));
 }
 
-pub const Direction = enum { Left, Up, Right, Down };
+pub const Direction = enum(u2) {
+    Up = 0,
+    Down = 1,
+    Left = 2,
+    Right = 3,
+};
 
 /// Cast a ray in the direction specificied, starting at (but not including) the index.
 pub fn ray(n: comptime_int, direction: Direction, index: BitBoardIndex(n)) BitBoard(n) {
